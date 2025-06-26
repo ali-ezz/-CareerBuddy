@@ -3,7 +3,6 @@ class CareerPlatform {
   constructor() {
     this.jobs = [];
     this.filteredJobs = [];
-    this.savedJobs = JSON.parse(localStorage.getItem('savedJobs') || '[]');
     this.userPreferences = JSON.parse(localStorage.getItem('userPreferences') || '{}');
     this.currentPage = 1;
     this.jobsPerPage = 12;
@@ -328,7 +327,6 @@ class CareerPlatform {
   createJobCard(job) {
     const aiScore = job.aiScore || 'Loading...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
-    const isSaved = this.savedJobs.includes(job.id);
     const relevanceScore = this.calculateRelevanceScore(job);
     
     return `
@@ -339,9 +337,6 @@ class CareerPlatform {
             ${relevanceScore > 70 ? '<span class="badge hot">🔥 Perfect Match</span>' : ''}
             ${job.salaryRange && job.salaryRange.max > 100000 ? '<span class="badge high-salary">💰 High Salary</span>' : ''}
           </div>
-          <button class="save-btn ${isSaved ? 'saved' : ''}" onclick="careerPlatform.toggleSaveJob('${job.id}')" title="${isSaved ? 'Unsave' : 'Save'} job">
-            ${isSaved ? '❤️' : '🤍'}
-          </button>
         </div>
         
         <div class="job-header">
@@ -472,17 +467,6 @@ class CareerPlatform {
     return `${Math.ceil(diffDays / 30)} months ago`;
   }
 
-  toggleSaveJob(jobId) {
-    if (this.savedJobs.includes(jobId)) {
-      this.savedJobs = this.savedJobs.filter(id => id !== jobId);
-    } else {
-      this.savedJobs.push(jobId);
-    }
-    
-    localStorage.setItem('savedJobs', JSON.stringify(this.savedJobs));
-    this.renderJobs(); // Re-render to update save button state
-    this.analytics.trackJobSaved(jobId, this.savedJobs.includes(jobId));
-  }
 
   loadUserPreferences() {
     // Load and apply user preferences
@@ -728,9 +712,6 @@ class CareerPlatform {
         </div>
         
         <div class="modal-actions">
-          <button class="btn-secondary" onclick="careerPlatform.toggleSaveJob('${job.id}'); careerPlatform.renderJobs();">
-            ${this.savedJobs.includes(job.id) ? '❤️ Saved' : '🤍 Save Job'}
-          </button>
           <button class="btn-secondary" onclick="careerPlatform.askAIAboutJob('${job.id}')">
             🤖 Ask AI Coach
           </button>
@@ -996,25 +977,39 @@ class AIAssistant {
   }
 
   async getAIResponse(userMessage) {
-    const context = this.buildEnhancedContext(userMessage);
-    
-    const response = await fetch('/api/grok', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jobTitle: "Career Coach Conversation",
-        jobDescription: context,
-        mode: "chatbot"
-      })
-    });
-    
-    const data = await response.json();
-    return data.analysis || "I'm not sure how to help with that. Could you tell me more about your career goals?";
+    try {
+      const prompt = this.buildChatPrompt(userMessage);
+      
+      const response = await fetch('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: "AI Career Coach Response",
+          jobDescription: prompt
+        })
+      });
+      
+      const data = await response.json();
+      
+      // Clean up the response to remove any meta-commentary
+      let aiResponse = data.analysis || "I'm not sure how to help with that. Could you tell me more about your career goals?";
+      
+      // Remove any text that talks about analyzing jobs or scoring
+      aiResponse = aiResponse.replace(/\*\*Risk Summary:\*\*.*$/s, '');
+      aiResponse = aiResponse.replace(/\*\*Risk Score:.*$/s, '');
+      aiResponse = aiResponse.replace(/The job requires.*$/s, '');
+      aiResponse = aiResponse.replace(/This.*job is at.*risk.*$/s, '');
+      
+      return aiResponse.trim() || "I'm here to help with your career questions. What would you like to know?";
+    } catch (error) {
+      console.error('AI Response Error:', error);
+      return "I'm having trouble connecting right now. Could you try asking your question again?";
+    }
   }
 
-  buildEnhancedContext(currentMessage) {
-    const conversationHistory = this.conversation.slice(-8).map(msg => 
-      `${msg.sender}: ${msg.content}`
+  buildChatPrompt(currentMessage) {
+    const conversationHistory = this.conversation.slice(-6).map(msg => 
+      `${msg.sender === 'user' ? 'User' : 'Coach'}: ${msg.content}`
     ).join('\n');
     
     const profileInfo = Object.entries(this.userProfile)
@@ -1022,31 +1017,32 @@ class AIAssistant {
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
 
-    const currentJobs = careerPlatform.jobs.slice(0, 5).map(job => 
-      `${job.title} at ${job.company_name} (${job.experienceLevel}, ${job.isRemote ? 'Remote' : job.candidate_required_location})`
-    ).join(', ');
+    const availableJobs = careerPlatform.jobs.slice(0, 3).map(job => 
+      `• ${job.title} at ${job.company_name} (${job.experienceLevel}${job.isRemote ? ', Remote' : ''})`
+    ).join('\n');
     
-    return `
-      You are an expert career coach with deep knowledge of the job market, career development, and professional growth. Have a natural, helpful conversation.
-      
-      User Profile: ${profileInfo || 'Not yet collected - consider asking about their background'}
-      
-      Recent conversation:
-      ${conversationHistory}
-      
-      Current available jobs: ${currentJobs}
-      
-      Current message: ${currentMessage}
-      
-      Instructions:
-      - Be conversational, empathetic, and actionable
-      - Ask smart follow-up questions to understand the user better
-      - Provide specific, personalized advice based on their profile
-      - If discussing jobs, reference the available positions when relevant
-      - Help with resume tips, interview prep, skill development, and career strategy
-      - Keep responses helpful but concise (under 200 words)
-      - If they seem confused or need direction, offer specific next steps
-    `;
+    return `You are a professional AI career coach helping someone with their career development. Be conversational, supportive, and provide actionable advice.
+
+Context:
+- User Profile: ${profileInfo || 'Still learning about the user'}
+- Available Jobs: ${availableJobs || 'Loading job opportunities...'}
+
+Recent Conversation:
+${conversationHistory}
+
+Current User Message: "${currentMessage}"
+
+Instructions:
+- Respond as a helpful career coach, not as a job analyst
+- Be warm, professional, and encouraging
+- Ask follow-up questions to understand their goals better
+- Provide specific, actionable career advice
+- If they ask about skills, suggest relevant learning paths
+- If they ask about jobs, help them evaluate fit and next steps
+- Keep responses focused and under 150 words
+- Don't mention risk scores or job safety analysis
+
+Respond directly as the career coach:`;
   }
 
   updateConversationFlow(userMessage, botResponse) {
@@ -1249,35 +1245,6 @@ const enhancedStyles = `
   50% { opacity: 0.7; }
 }
 
-.save-btn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.save-btn:hover {
-  background: rgba(233, 69, 96, 0.1);
-  transform: scale(1.1);
-}
-
-.save-btn.saved {
-  animation: heartbeat 0.6s ease-in-out;
-}
-
-@keyframes heartbeat {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.3); }
-  100% { transform: scale(1); }
-}
 
 .company-name {
   font-weight: 600;
