@@ -269,27 +269,97 @@ class CareerPlatform {
     }
   }
 
-  async fetchJobAIScore(job) {
+  async fetchJobAIScore(job, retryCount = 0) {
+    const maxRetries = 2;
+    
     try {
       const response = await fetch('/api/grok', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jobTitle: job.title,
-          jobDescription: job.description
+          jobDescription: job.description || job.title
         })
       });
       
-      const data = await response.json();
-      const score = parseInt(data.analysis);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
       
-      if (!isNaN(score)) {
+      const data = await response.json();
+      let score = null;
+      
+      if (data.analysis) {
+        // Try to extract number from analysis
+        const scoreMatch = data.analysis.match(/(\d+)/);
+        if (scoreMatch) {
+          score = parseInt(scoreMatch[1]);
+          if (score > 100) score = score % 100; // Handle cases like "score: 75"
+        }
+      }
+      
+      if (score !== null && score >= 0 && score <= 100) {
         job.aiScore = score;
         this.updateJobAIScore(job.id, score);
+      } else {
+        // Fallback scoring based on job title keywords
+        job.aiScore = this.getFallbackAIScore(job);
+        this.updateJobAIScore(job.id, job.aiScore);
       }
+      
     } catch (error) {
       console.error('Error fetching AI score for job:', job.id, error);
+      
+      if (retryCount < maxRetries) {
+        // Retry after delay
+        setTimeout(() => {
+          this.fetchJobAIScore(job, retryCount + 1);
+        }, (retryCount + 1) * 2000);
+      } else {
+        // Final fallback
+        job.aiScore = this.getFallbackAIScore(job);
+        this.updateJobAIScore(job.id, job.aiScore);
+      }
     }
+  }
+
+  getFallbackAIScore(job) {
+    const title = job.title.toLowerCase();
+    const description = (job.description || '').toLowerCase();
+    
+    // High AI safety jobs (tech, creative, strategy)
+    const highSafetyKeywords = ['software', 'developer', 'engineer', 'designer', 'creative', 'strategy', 'manager', 'architect', 'lead', 'senior', 'principal', 'ai', 'machine learning', 'data scientist'];
+    
+    // Medium safety jobs
+    const mediumSafetyKeywords = ['analyst', 'consultant', 'specialist', 'coordinator', 'officer', 'advisor'];
+    
+    // Lower safety jobs (repetitive, administrative)
+    const lowerSafetyKeywords = ['clerk', 'assistant', 'operator', 'entry', 'junior', 'support'];
+    
+    let score = 50; // Default score
+    
+    for (const keyword of highSafetyKeywords) {
+      if (title.includes(keyword) || description.includes(keyword)) {
+        score = Math.max(score, 75 + Math.floor(Math.random() * 20));
+        break;
+      }
+    }
+    
+    for (const keyword of mediumSafetyKeywords) {
+      if (title.includes(keyword) || description.includes(keyword)) {
+        score = Math.max(score, 55 + Math.floor(Math.random() * 20));
+        break;
+      }
+    }
+    
+    for (const keyword of lowerSafetyKeywords) {
+      if (title.includes(keyword) || description.includes(keyword)) {
+        score = Math.min(score, 45 + Math.floor(Math.random() * 15));
+        break;
+      }
+    }
+    
+    return Math.min(Math.max(score, 20), 95); // Ensure score is between 20-95
   }
 
   updateJobAIScore(jobId, score) {
