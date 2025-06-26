@@ -32,7 +32,8 @@ async function fetchJobsAndScore(keyword) {
       updateJobAI(job.id, analysis);
     }
   } catch (err) {
-    jobContainer.innerHTML = "<p style='color:red'>Error fetching jobs or AI scores.</p>";
+    jobContainer.innerHTML = `<p style='color:red'>Error fetching jobs or AI scores.<br>${err.message}</p>`;
+    console.error("Job fetch error:", err);
   }
 }
 
