@@ -1,6 +1,7 @@
 const searchBtn = document.getElementById("search-btn");
 const keywordInput = document.getElementById("keyword");
 const jobContainer = document.getElementById("job-container");
+const favoritesToggle = document.getElementById("favorites-toggle");
 
 searchBtn.addEventListener("click", () => {
   const keyword = keywordInput.value.trim();
@@ -10,6 +11,7 @@ searchBtn.addEventListener("click", () => {
 
 let allJobs = [];
 let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+let showFavoritesOnly = false;
 
 // --- Advanced Chatbot State ---
 let chatState = {
@@ -18,10 +20,11 @@ let chatState = {
   skills: "",
   values: "",
   jobs: [],
-  lastBotMsg: ""
+  lastBotMsg: "",
+  clarification: false
 };
 
-async function fetchJobsAndScore(keyword) {
+async function fetchJobsAndScore(keyword, trending = false) {
   showJobSkeletons();
   try {
     const jobRes = await fetch(`/api/jobFetcher?keyword=${encodeURIComponent(keyword)}`);
@@ -38,6 +41,11 @@ async function fetchJobsAndScore(keyword) {
     populateLocationFilter(allJobs);
     populateTypeFilter(allJobs);
     renderFilteredJobs();
+    if (!trending) {
+      document.getElementById("jobs-section-title").textContent = "Job Results";
+    } else {
+      document.getElementById("jobs-section-title").textContent = "Trending Jobs";
+    }
     // Fetch AI scores in parallel
     await Promise.all(allJobs.map(async (job) => {
       try {
@@ -94,7 +102,7 @@ function populateTypeFilter(jobs) {
     filter = document.createElement("select");
     filter.id = "type-filter";
     filter.innerHTML = `<option value="">All Types</option>`;
-    document.querySelector(".search-section").appendChild(filter);
+    document.querySelector(".search-bar").appendChild(filter);
     filter.addEventListener("change", renderFilteredJobs);
   }
   const types = Array.from(new Set(jobs.map(j => j.job_type).filter(Boolean)));
@@ -102,6 +110,14 @@ function populateTypeFilter(jobs) {
 }
 
 document.getElementById("location-filter").addEventListener("change", renderFilteredJobs);
+
+if (favoritesToggle) {
+  favoritesToggle.addEventListener("click", () => {
+    showFavoritesOnly = !showFavoritesOnly;
+    favoritesToggle.classList.toggle("active", showFavoritesOnly);
+    renderFilteredJobs();
+  });
+}
 
 function renderFilteredJobs() {
   const locFilter = document.getElementById("location-filter");
@@ -115,6 +131,18 @@ function renderFilteredJobs() {
   }
   if (selectedType) {
     jobsToShow = jobsToShow.filter(j => j.job_type === selectedType);
+  }
+  if (showFavoritesOnly) {
+    jobsToShow = jobsToShow.filter(j => favorites.includes(jobKey(j)));
+    document.getElementById("jobs-section-title").textContent = "Your Favorite Jobs";
+  } else if (!document.getElementById("keyword").value.trim()) {
+    document.getElementById("jobs-section-title").textContent = "Trending Jobs";
+  } else {
+    document.getElementById("jobs-section-title").textContent = "Job Results";
+  }
+  if (!jobsToShow.length) {
+    jobContainer.innerHTML = "<p>No jobs found for these filters.</p>";
+    return;
   }
   for (const job of jobsToShow) {
     renderJob(job, "Loading AI safety...");
@@ -251,6 +279,28 @@ function appendChatbotMessage(sender, text) {
 
 async function handleChatbotConversation(userMsg) {
   // Conversation flow: interests -> skills -> values -> recommend jobs
+  if (chatState.clarification) {
+    // If bot asked for clarification, send to Grok for a follow-up
+    appendChatbotMessage("bot", "Thinking...");
+    try {
+      const res = await fetch('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: "Career Coach",
+          jobDescription: `User said: "${userMsg}". Continue the conversation as a career coach, ask clarifying questions if needed, and recommend jobs if ready.`,
+          mode: "chatbot"
+        })
+      });
+      const data = await res.json();
+      chatbotMessages.lastChild.textContent = data.analysis || "Sorry, I couldn't find a match.";
+    } catch (err) {
+      chatbotMessages.lastChild.textContent = "AI error: " + err.message;
+    }
+    chatState.clarification = false;
+    return;
+  }
+
   if (chatState.step === 0) {
     chatState.interests = userMsg;
     chatState.step = 1;
@@ -269,7 +319,7 @@ async function handleChatbotConversation(userMsg) {
     chatState.jobs = data.jobs ? data.jobs.slice(0, 10) : [];
     // Ask Grok for recommendations
     const jobTitles = chatState.jobs.map(j => j.title).join(", ");
-    const prompt = `User interests: ${chatState.interests}. Skills: ${chatState.skills}. Values: ${chatState.values}. Here are some jobs: ${jobTitles}. Which 3 jobs are the best fit for the user and why? Respond as a friendly career coach.`;
+    const prompt = `User interests: ${chatState.interests}. Skills: ${chatState.skills}. Values: ${chatState.values}. Here are some jobs: ${jobTitles}. Which 3 jobs are the best fit for the user and why? If you need more info, ask the user a clarifying question. Respond as a friendly career coach.`;
     appendChatbotMessage("bot", "Thinking...");
     try {
       const res = await fetch('/api/grok', {
@@ -283,6 +333,10 @@ async function handleChatbotConversation(userMsg) {
       });
       const data = await res.json();
       chatbotMessages.lastChild.textContent = data.analysis || "Sorry, I couldn't find a match.";
+      // If Grok asks a question, set clarification mode
+      if (data.analysis && /(\?|clarify|more info|tell me|could you|please specify|elaborate)/i.test(data.analysis)) {
+        chatState.clarification = true;
+      }
     } catch (err) {
       chatbotMessages.lastChild.textContent = "AI error: " + err.message;
     }
@@ -291,3 +345,8 @@ async function handleChatbotConversation(userMsg) {
     appendChatbotMessage("bot", "If you'd like more recommendations, please refresh or start a new chat.");
   }
 }
+
+// Show trending jobs on load
+window.addEventListener("DOMContentLoaded", () => {
+  fetchJobsAndScore("trending", true);
+});

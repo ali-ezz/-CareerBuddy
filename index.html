@@ -3,31 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CareerBuddy – AI-Powered Job Explorer</title>
+  <title>CareerBuddy – AI-Powered Career Platform</title>
   <link rel="stylesheet" href="style.css"/>
+  <link rel="icon" href="https://cdn.jsdelivr.net/gh/phosphor-icons/web/src/icons/briefcase-duotone.svg" />
 </head>
 <body>
-  <header>
-    <h1>CareerBuddy</h1>
-    <p class="subtitle">Find future-proof jobs and see their AI safety score</p>
+  <header class="main-header">
+    <div class="logo-area">
+      <img src="https://cdn.jsdelivr.net/gh/phosphor-icons/web/src/icons/briefcase-duotone.svg" alt="CareerBuddy Logo" class="logo"/>
+      <h1>CareerBuddy</h1>
+    </div>
+    <div class="header-actions">
+      <span class="tagline">Discover your future. AI-powered career guidance.</span>
+      <button id="favorites-toggle" title="Show Favorites" aria-label="Show Favorites">★</button>
+    </div>
   </header>
   <main>
-    <section class="search-section">
-      <input id="keyword" placeholder="Enter job interest (e.g. AI, design, nurse)" />
-      <button id="search-btn">Find Jobs</button>
-      <select id="location-filter">
-        <option value="">All Locations</option>
-      </select>
+    <section class="hero-section">
+      <h2>Find your next career move</h2>
+      <p>Explore trending jobs, get AI-powered safety scores, and chat with our smart career coach.</p>
+      <div class="search-bar">
+        <input id="keyword" placeholder="Search jobs or interests (e.g. AI, design, nurse)" />
+        <button id="search-btn">Search</button>
+        <select id="location-filter"><option value="">All Locations</option></select>
+        <select id="type-filter"><option value="">All Types</option></select>
+      </div>
     </section>
-    <section id="job-container" class="jobs"></section>
-    <section id="chatbot-section" class="chatbot-section">
-      <h2>CareerBuddy Chatbot</h2>
-      <div id="chatbot-messages" class="chatbot-messages"></div>
-      <form id="chatbot-form">
-        <input id="chatbot-input" placeholder="Ask for job advice..." autocomplete="off" />
-        <button type="submit">Send</button>
-      </form>
+    <section class="jobs-section">
+      <h3 id="jobs-section-title">Trending Jobs</h3>
+      <div id="job-container" class="jobs"></div>
     </section>
+    <aside id="chatbot-dock">
+      <div id="chatbot-section" class="chatbot-section">
+        <h2><span class="icon">🤖</span> CareerBuddy Chatbot</h2>
+        <div id="chatbot-messages" class="chatbot-messages"></div>
+        <form id="chatbot-form">
+          <input id="chatbot-input" placeholder="Ask for job advice..." autocomplete="off" />
+          <button type="submit">Send</button>
+        </form>
+      </div>
+    </aside>
   </main>
   <footer>
     <p>Powered by Remotive API & Grok AI. Data from O*NET, BLS, WEF, and more.</p>
