@@ -179,7 +179,8 @@ if (chatbotForm && chatbotInput && chatbotMessages) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jobTitle: "Career Advice",
-          jobDescription: userMsg
+          jobDescription: userMsg,
+          mode: "chatbot"
         })
       });
       const data = await res.json();
