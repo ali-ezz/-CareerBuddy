@@ -34,7 +34,7 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
+        model: "allam-2-7b",
         messages,
         max_tokens: 300,
         temperature: 0.2
