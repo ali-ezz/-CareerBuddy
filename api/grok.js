@@ -8,7 +8,7 @@ export default async function handler(req, res) {
     if (mode === "chatbot") {
       // Use the jobDescription as the full chat prompt/context from the frontend
       messages = [
-        { role: "system", content: "You are an expert AI career coach. Be conversational, supportive, and provide actionable advice about jobs, skills, and career growth. Never mention risk scores or AI disruption unless asked directly." },
+        { role: "system", content: "You are an expert AI career coach. Be conversational, supportive, and provide actionable advice about jobs, skills, and career growth. Never mention risk scores or AI disruption unless asked directly. Never respond with just a number or a score; always provide a helpful, conversational answer." },
         { role: "user", content: jobDescription }
       ];
     } else {

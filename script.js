@@ -543,6 +543,18 @@ class CareerPlatform {
       });
       
       if (!response.ok) {
+        // Try to parse Groq error for rate limit
+        let friendlyMessage = "Error fetching AI score.";
+        try {
+          const errorData = await response.json();
+          if (
+            errorData?.error?.code === "rate_limit_exceeded" ||
+            (errorData?.details && errorData.details.includes("rate limit"))
+          ) {
+            friendlyMessage = "AI is busy right now (rate limit reached). Please wait a few seconds and try again!";
+          }
+        } catch (e) {}
+        this.showAIRateLimitReminder(friendlyMessage);
         throw new Error(`HTTP ${response.status}`);
       }
       
@@ -577,6 +589,32 @@ class CareerPlatform {
         this.updateJobAIScore(job.id, job.aiScore);
       }
     }
+  }
+
+  showAIRateLimitReminder(message) {
+    // Show a friendly reminder at the top of the page
+    let reminder = document.getElementById('ai-rate-limit-reminder');
+    if (!reminder) {
+      reminder = document.createElement('div');
+      reminder.id = 'ai-rate-limit-reminder';
+      reminder.style.position = 'fixed';
+      reminder.style.top = '0';
+      reminder.style.left = '0';
+      reminder.style.right = '0';
+      reminder.style.zIndex = '9999';
+      reminder.style.background = '#f59e42';
+      reminder.style.color = '#222';
+      reminder.style.fontWeight = 'bold';
+      reminder.style.textAlign = 'center';
+      reminder.style.padding = '12px 0';
+      reminder.style.boxShadow = '0 2px 8px rgba(0,0,0,0.08)';
+      reminder.style.fontSize = '16px';
+      document.body.appendChild(reminder);
+    }
+    reminder.textContent = message || "AI is busy right now. Please wait a few seconds and try again!";
+    setTimeout(() => {
+      if (reminder) reminder.remove();
+    }, 8000);
   }
 
   getFallbackAIScore(job) {
@@ -655,63 +693,47 @@ class CareerPlatform {
     const relevanceScore = this.calculateRelevanceScore(job);
 
     modal.innerHTML = `
-      <div class="modal-header">
-        <h2>${job.title}</h2>
-        <button class="modal-close" onclick="careerPlatform.closeJobModal()">×</button>
-      </div>
-      <div class="modal-content">
-        <div class="modal-meta">
-          <div class="modal-company">
-            <span class="company-name">${job.company_name}</span>
-            ${this.getCompanyRating(job.company_name)}
-          </div>
-          <div class="modal-scores">
-            <div class="ai-score ${aiScoreClass}">
-              🤖 ${typeof aiScore === 'number' ? `${aiScore}% Safe from AI` : aiScore}
+      <div class="modal-header" style="background: var(--accent, #e94560); color: #fff; border-radius: 12px 12px 0 0; padding: 24px 32px 16px 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.07);">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h2 style="margin: 0 0 8px 0; font-size: 2rem; font-weight: 700;">${job.title}</h2>
+            <div style="font-size: 1.1rem; font-weight: 500;">
+              <span class="company-name" style="color: #fff;">${job.company_name}</span>
+              ${this.getCompanyRating(job.company_name)}
             </div>
-            ${relevanceScore > 50 ? `<div class="relevance-score">🎯 ${Math.round(relevanceScore)}% Match</div>` : ''}
           </div>
+          <button class="modal-close" onclick="careerPlatform.closeJobModal()" style="background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; margin-left: 24px;">×</button>
         </div>
-        
-        <div class="modal-details">
-          <div class="detail-row">
-            <strong>Location:</strong> ${job.candidate_required_location || 'Remote'}
-            ${job.isRemote ? '<span class="remote-badge">🌍 Remote OK</span>' : ''}
+      </div>
+      <div class="modal-content" style="padding: 32px; background: #fff; border-radius: 0 0 12px 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.08);">
+        <div class="modal-scores" style="display: flex; gap: 24px; align-items: center; margin-bottom: 24px;">
+          <div class="ai-score ${aiScoreClass}" style="font-size: 1.1rem;">
+            🤖 ${typeof aiScore === 'number' ? `${aiScore}% Safe from AI` : aiScore}
           </div>
-          <div class="detail-row">
-            <strong>Type:</strong> ${job.job_type || 'Full-time'}
-          </div>
-          <div class="detail-row">
-            <strong>Experience:</strong> ${job.experienceLevel}
-          </div>
-          <div class="detail-row">
-            <strong>Salary:</strong> ${job.salaryRange ? 
-              `$${this.formatSalary(job.salaryRange.min)} - $${this.formatSalary(job.salaryRange.max)}` : 
-              job.salary || 'Not specified'
-            }
-          </div>
-          <div class="detail-row">
-            <strong>Published:</strong> ${this.formatDate(job.publication_date)}
-          </div>
+          ${relevanceScore > 50 ? `<div class="relevance-score" style="background: #f59e42; color: #fff; padding: 6px 14px; border-radius: 16px; font-weight: 600;">🎯 ${Math.round(relevanceScore)}% Match</div>` : ''}
         </div>
-
+        <div class="modal-details" style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 32px; margin-bottom: 24px;">
+          <div><strong>Location:</strong> ${job.candidate_required_location || 'Remote'} ${job.isRemote ? '<span class="remote-badge" style="margin-left:8px;">🌍 Remote OK</span>' : ''}</div>
+          <div><strong>Type:</strong> ${job.job_type || 'Full-time'}</div>
+          <div><strong>Experience:</strong> ${job.experienceLevel}</div>
+          <div><strong>Salary:</strong> ${job.salaryRange ? `$${this.formatSalary(job.salaryRange.min)} - $${this.formatSalary(job.salaryRange.max)}` : job.salary || 'Not specified'}</div>
+          <div><strong>Published:</strong> ${this.formatDate(job.publication_date)}</div>
+        </div>
         ${job.skills.length > 0 ? `
-          <div class="modal-skills">
-            <h4>Skills & Technologies</h4>
-            <div class="skills-grid">
-              ${job.skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+          <div class="modal-skills" style="margin-bottom: 24px;">
+            <h4 style="margin-bottom: 10px; color: var(--accent, #e94560); font-size: 1.1rem;">Skills & Technologies</h4>
+            <div class="skills-grid" style="display: flex; flex-wrap: wrap; gap: 8px;">
+              ${job.skills.map(skill => `<span class="skill-tag" style="background: #f3f4f6; color: #222; padding: 6px 14px; border-radius: 14px; font-size: 0.98rem;">${skill}</span>`).join('')}
             </div>
           </div>
         ` : ''}
-        
-        <div class="modal-description">
-          <h3>Job Description</h3>
-          <div class="description-content">
+        <div class="modal-description" style="margin-bottom: 24px;">
+          <h3 style="margin-bottom: 10px; color: var(--accent, #e94560); font-size: 1.1rem;">Job Description</h3>
+          <div class="description-content" style="line-height: 1.7; color: #222;">
             ${job.description || 'No description available'}
           </div>
         </div>
-        
-        <div class="modal-actions">
+        <div class="modal-actions" style="display: flex; gap: 16px; margin-top: 16px;">
           <button class="btn-secondary" onclick="careerPlatform.askAIAboutJob('${job.id}')">
             🤖 Ask AI Coach
           </button>
@@ -999,6 +1021,11 @@ class AIAssistant {
       aiResponse = aiResponse.replace(/\*\*Risk Score:.*$/s, '');
       aiResponse = aiResponse.replace(/The job requires.*$/s, '');
       aiResponse = aiResponse.replace(/This.*job is at.*risk.*$/s, '');
+
+      // If the response is just a number or a short number-like string, show a friendly fallback
+      if (/^\s*\d+\s*$/.test(aiResponse.trim())) {
+        aiResponse = "I'm here to help with your career questions. Could you tell me more about your goals, interests, or what you're looking for?";
+      }
       
       return aiResponse.trim() || "I'm here to help with your career questions. What would you like to know?";
     } catch (error) {
