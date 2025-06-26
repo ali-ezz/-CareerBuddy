@@ -27,28 +27,45 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
       ];
     }
 
-    const grokRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "llama-3.1-8b-instant",
-        messages,
-        max_tokens: 300,
-        temperature: 0.2
-      })
-    });
+    // Try primary model, then fallback if rate limit or quota error
+    const models = ["llama-3.1-8b-instant", "llama3-8b-8192", "llama-3.3-70b-versatile"];
+    let grokRes, data, content, lastErrText;
+    for (let i = 0; i < models.length; i++) {
+      grokRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: models[i],
+          messages,
+          max_tokens: 300,
+          temperature: 0.2
+        })
+      });
 
-    if (!grokRes.ok) {
-      const errText = await grokRes.text();
-      console.error("Grok API error:", errText);
-      return res.status(500).json({ error: "Grok API error", details: errText });
+      if (grokRes.ok) {
+        data = await grokRes.json();
+        content = data.choices?.[0]?.message?.content || "No result.";
+        break;
+      } else {
+        lastErrText = await grokRes.text();
+        // Only retry on rate limit or quota errors
+        if (
+          !/rate limit|quota|too many requests|overloaded|429/i.test(lastErrText)
+        ) {
+          console.error("Grok API error:", lastErrText);
+          return res.status(500).json({ error: "Grok API error", details: lastErrText });
+        }
+      }
     }
 
-    const data = await grokRes.json();
-    const content = data.choices?.[0]?.message?.content || "No result.";
+    if (!content) {
+      console.error("Grok API error:", lastErrText);
+      return res.status(500).json({ error: "Grok API error", details: lastErrText });
+    }
+
     if (mode === "chatbot") {
       res.status(200).json({ analysis: content });
     } else {
