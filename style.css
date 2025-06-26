@@ -461,14 +461,15 @@ body {
 
 /* Redesigned Job Card */
 .job-card.redesigned {
-  display: flex;
-  flex-direction: row;
+  display: block;
   min-height: 180px;
   box-shadow: 0 4px 24px rgba(102, 126, 234, 0.07);
   border: none;
   margin-bottom: 0;
   padding: 0;
   background: #fff;
+  width: 100%;
+  max-width: 100%;
 }
 
 .job-card-accent {
@@ -486,6 +487,7 @@ body {
   padding: 28px 32px 28px 28px;
   width: 100%;
   gap: 28px;
+  box-sizing: border-box;
 }
 
 .job-card-icon {
@@ -602,8 +604,9 @@ body {
     padding: 22px 18px 22px 18px;
   }
   .job-card.redesigned {
-    flex-direction: column;
     min-height: 0;
+    width: 100%;
+    max-width: 100%;
   }
   .job-card-accent {
     width: 100%;
