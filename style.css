@@ -438,12 +438,10 @@ body {
 .jobs-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 32px;
-  margin-top: 32px;
-  margin-bottom: 56px;
+  gap: 28px;
+  margin-top: 24px;
+  margin-bottom: 48px;
   align-items: stretch;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 .jobs-container.list-view {
@@ -452,19 +450,13 @@ body {
 
 .job-card {
   background: white;
-  border: 2.5px solid var(--accent);
-  border-radius: var(--radius-xl);
-  padding: 32px 28px 28px 28px;
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  padding: 24px;
   transition: var(--transition);
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(233, 69, 96, 0.13);
-  margin: 8px 0;
-  min-height: 320px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
 }
 
 .job-card::before {
