@@ -530,8 +530,8 @@ class CareerPlatform {
   }
 
   async fetchJobAIScore(job, retryCount = 0) {
-    const maxRetries = 4;
-    const retryDelay = 4000;
+const maxRetries = 6;
+const retryDelay = 3000;
 
     try {
       const response = await fetch('/api/grok', {

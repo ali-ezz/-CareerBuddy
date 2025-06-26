@@ -442,10 +442,13 @@ body {
   margin-top: 24px;
   margin-bottom: 48px;
   align-items: stretch;
+  column-gap: 28px;
+  row-gap: 28px;
 }
 
 .jobs-container.list-view {
   grid-template-columns: 1fr;
+  grid-row-gap: 28px;
 }
 
 .job-card {
@@ -453,10 +456,11 @@ body {
   border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
   padding: 24px;
-  transition: var(--transition);
+  transition: var(--transition) 0.2s ease;
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  min-width: 300px;
 }
 
 .job-card::before {
