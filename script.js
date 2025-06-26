@@ -428,38 +428,37 @@ class CareerPlatform {
   }
 
   createJobCard(job) {
-    // Clean, modern, single-card-per-job rendering
-    const aiScore = job.aiScore || 'Loading...';
+    // Modern, clean, isolated job card rendering
+    const aiScore = typeof job.aiScore === 'number' ? `${job.aiScore}%` : '...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
-    const relevanceScore = this.calculateRelevanceScore(job);
 
     return `
       <div class="job-card" data-job-id="${job.id}">
-        <div class="job-card-top">
-          <div class="job-card-header">
+        <div class="job-card-header">
+          <div>
             <h3 class="job-title">${job.title}</h3>
-            <div class="ai-score ${aiScoreClass}">
-              <span class="score-icon">🤖</span>
-              <span class="score-text">${typeof aiScore === 'number' ? `${aiScore}%` : aiScore}</span>
+            <div class="job-company">
+              <span class="company-name">${job.company_name}</span>
+              ${this.getCompanyRating(job.company_name)}
             </div>
           </div>
-          <div class="job-company">
-            <span class="company-name">${job.company_name}</span>
-            ${this.getCompanyRating(job.company_name)}
+          <div class="ai-score ${aiScoreClass}">
+            <span class="score-icon">🤖</span>
+            <span class="score-text">${aiScore}</span>
           </div>
-          <div class="job-meta">
-            <span class="job-meta-item">${job.candidate_required_location || 'Remote'}</span>
-            <span class="job-meta-item">${job.job_type || 'Full-time'}</span>
-            <span class="job-meta-item">${job.experienceLevel}</span>
-            <span class="job-meta-item">${this.getTimeAgo(job.publication_date)}</span>
-          </div>
-          ${job.skills.length > 0 ? `
-            <div class="job-skills">
-              ${job.skills.slice(0, 4).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
-              ${job.skills.length > 4 ? `<span class="skill-more">+${job.skills.length - 4}</span>` : ''}
-            </div>
-          ` : ''}
         </div>
+        <div class="job-meta">
+          <span class="job-meta-item">${job.candidate_required_location || 'Remote'}</span>
+          <span class="job-meta-item">${job.job_type || 'Full-time'}</span>
+          <span class="job-meta-item">${job.experienceLevel}</span>
+          <span class="job-meta-item">${this.getTimeAgo(job.publication_date)}</span>
+        </div>
+        ${job.skills.length > 0 ? `
+          <div class="job-skills">
+            ${job.skills.slice(0, 4).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+            ${job.skills.length > 4 ? `<span class="skill-more">+${job.skills.length - 4}</span>` : ''}
+          </div>
+        ` : ''}
         <div class="job-description">
           ${this.truncateText(job.description || 'No description available', 150)}
         </div>
