@@ -15,8 +15,19 @@
     <section class="search-section">
       <input id="keyword" placeholder="Enter job interest (e.g. AI, design, nurse)" />
       <button id="search-btn">Find Jobs</button>
+      <select id="location-filter">
+        <option value="">All Locations</option>
+      </select>
     </section>
     <section id="job-container" class="jobs"></section>
+    <section id="chatbot-section" class="chatbot-section">
+      <h2>CareerBuddy Chatbot</h2>
+      <div id="chatbot-messages" class="chatbot-messages"></div>
+      <form id="chatbot-form">
+        <input id="chatbot-input" placeholder="Ask for job advice..." autocomplete="off" />
+        <button type="submit">Send</button>
+      </form>
+    </section>
   </main>
   <footer>
     <p>Powered by Remotive API & Grok AI. Data from O*NET, BLS, WEF, and more.</p>

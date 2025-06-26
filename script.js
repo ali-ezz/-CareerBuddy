@@ -8,6 +8,8 @@ searchBtn.addEventListener("click", () => {
   fetchJobsAndScore(keyword);
 });
 
+let allJobs = [];
+
 async function fetchJobsAndScore(keyword) {
   jobContainer.innerHTML = "<p>Loading jobs...</p>";
   try {
@@ -17,17 +19,15 @@ async function fetchJobsAndScore(keyword) {
       jobContainer.innerHTML = `<p style='color:red'>Job API error.<br>Raw response: <pre>${JSON.stringify(data, null, 2)}</pre></p>`;
       return;
     }
-    const jobs = data.jobs;
-    if (!jobs.length) {
+    allJobs = data.jobs;
+    if (!allJobs.length) {
       jobContainer.innerHTML = "<p>No jobs found for this keyword.</p>";
       return;
     }
-    jobContainer.innerHTML = "";
-    for (const job of jobs) {
-      renderJob(job, "Loading AI safety...");
-    }
+    populateLocationFilter(allJobs);
+    renderFilteredJobs();
     // Fetch AI scores in parallel
-    await Promise.all(jobs.map(async (job) => {
+    await Promise.all(allJobs.map(async (job) => {
       try {
         const grokRes = await fetch('/api/grok', {
           method: 'POST',
@@ -37,15 +37,42 @@ async function fetchJobsAndScore(keyword) {
             jobDescription: job.description
           })
         });
-        const { analysis } = await grokRes.json();
-        updateJobAI(job, analysis);
+        const grokData = await grokRes.json();
+        if (grokData.analysis) {
+          updateJobAI(job, grokData.analysis);
+        } else if (grokData.error) {
+          updateJobAI(job, `AI error: ${grokData.error} (${grokData.details || ""})`);
+        } else {
+          updateJobAI(job, `AI error: ${JSON.stringify(grokData)}`);
+        }
       } catch (err) {
-        updateJobAI(job, "AI error");
+        updateJobAI(job, "AI error: " + err.message);
       }
     }));
   } catch (err) {
     jobContainer.innerHTML = `<p style='color:red'>Error fetching jobs or AI scores.<br>${err.message}</p>`;
     console.error("Job fetch error:", err);
+  }
+}
+
+function populateLocationFilter(jobs) {
+  const filter = document.getElementById("location-filter");
+  const locations = Array.from(new Set(jobs.map(j => j.candidate_required_location).filter(Boolean)));
+  filter.innerHTML = `<option value="">All Locations</option>` + locations.map(loc => `<option value="${loc}">${loc}</option>`).join("");
+}
+
+document.getElementById("location-filter").addEventListener("change", renderFilteredJobs);
+
+function renderFilteredJobs() {
+  const filter = document.getElementById("location-filter");
+  const selected = filter.value;
+  jobContainer.innerHTML = "";
+  let jobsToShow = allJobs;
+  if (selected) {
+    jobsToShow = allJobs.filter(j => j.candidate_required_location === selected);
+  }
+  for (const job of jobsToShow) {
+    renderJob(job, "Loading AI safety...");
   }
 }
 
@@ -90,7 +117,6 @@ function addMoreInfoHandler(job, aiAnalysis) {
   }
 }
 
-// Modal logic
 function showModal(job, aiAnalysis) {
   let modal = document.getElementById("job-modal");
   if (!modal) {
@@ -113,4 +139,32 @@ function showModal(job, aiAnalysis) {
   modal.style.display = "flex";
   document.getElementById("close-modal").onclick = () => { modal.style.display = "none"; };
   modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+}
+
+// Chatbot UI logic
+const chatbotForm = document.getElementById("chatbot-form");
+const chatbotInput = document.getElementById("chatbot-input");
+const chatbotMessages = document.getElementById("chatbot-messages");
+
+if (chatbotForm && chatbotInput && chatbotMessages) {
+  chatbotForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const userMsg = chatbotInput.value.trim();
+    if (!userMsg) return;
+    appendChatbotMessage("user", userMsg);
+    chatbotInput.value = "";
+    appendChatbotMessage("bot", "Thinking...");
+    // Placeholder: integrate Grok API here for real advice
+    setTimeout(() => {
+      chatbotMessages.lastChild.textContent = "Sorry, the chatbot is not yet connected to AI.";
+    }, 800);
+  });
+}
+
+function appendChatbotMessage(sender, text) {
+  const div = document.createElement("div");
+  div.className = "chatbot-msg " + sender;
+  div.textContent = text;
+  chatbotMessages.appendChild(div);
+  chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
 }
