@@ -3,6 +3,8 @@ class CareerPlatform {
   constructor() {
     this.jobs = [];
     this.filteredJobs = [];
+    this.savedJobs = JSON.parse(localStorage.getItem('savedJobs') || '[]');
+    this.userPreferences = JSON.parse(localStorage.getItem('userPreferences') || '{}');
     this.currentPage = 1;
     this.jobsPerPage = 12;
     this.isLoading = false;
@@ -11,18 +13,23 @@ class CareerPlatform {
       location: '',
       experience: '',
       salary: '',
-      sort: 'relevance'
+      sort: 'relevance',
+      remote: false,
+      skills: []
     };
     
     this.aiAssistant = new AIAssistant();
+    this.analytics = new PlatformAnalytics();
     this.init();
   }
 
   async init() {
     this.setupEventListeners();
+    this.loadUserPreferences();
     this.showSkeletonJobs();
     await this.loadTrendingJobs();
     this.hideSkeletonJobs();
+    this.updateInsights();
   }
 
   setupEventListeners() {
@@ -34,6 +41,9 @@ class CareerPlatform {
     mainSearchInput?.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') this.handleSearch();
     });
+
+    // Auto-complete search
+    mainSearchInput?.addEventListener('input', (e) => this.handleSearchSuggestions(e.target.value));
 
     // Filter functionality
     const locationFilter = document.getElementById('location-filter');
@@ -62,6 +72,54 @@ class CareerPlatform {
     
     dashboardBtn?.addEventListener('click', () => this.showDashboard());
     getStartedBtn?.addEventListener('click', () => this.aiAssistant.open());
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
+  }
+
+  handleKeyboardShortcuts(e) {
+    if (e.ctrlKey || e.metaKey) {
+      switch(e.key) {
+        case 'k':
+          e.preventDefault();
+          document.getElementById('main-search')?.focus();
+          break;
+        case '/':
+          e.preventDefault();
+          this.aiAssistant.open();
+          break;
+      }
+    }
+  }
+
+  async handleSearchSuggestions(query) {
+    if (query.length < 2) return;
+    
+    const suggestions = this.generateSearchSuggestions(query);
+    this.showSearchSuggestions(suggestions);
+  }
+
+  generateSearchSuggestions(query) {
+    const commonRoles = [
+      'Software Engineer', 'Data Scientist', 'Product Manager', 'UX Designer',
+      'DevOps Engineer', 'Marketing Manager', 'Sales Representative', 'Business Analyst',
+      'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'Machine Learning Engineer'
+    ];
+    
+    const skills = [
+      'JavaScript', 'Python', 'React', 'Node.js', 'AWS', 'Docker', 'Kubernetes',
+      'Machine Learning', 'Data Analysis', 'Project Management', 'Digital Marketing'
+    ];
+    
+    const allSuggestions = [...commonRoles, ...skills];
+    return allSuggestions
+      .filter(item => item.toLowerCase().includes(query.toLowerCase()))
+      .slice(0, 5);
+  }
+
+  showSearchSuggestions(suggestions) {
+    // Implementation for search suggestions dropdown
+    console.log('Search suggestions:', suggestions);
   }
 
   async handleSearch() {
@@ -73,6 +131,7 @@ class CareerPlatform {
     this.searchQuery = query;
     this.currentPage = 1;
     this.updateJobsTitle(`Results for "${query}"`);
+    this.analytics.trackSearch(query);
     
     this.showSkeletonJobs();
     await this.fetchJobs(query);
@@ -89,20 +148,66 @@ class CareerPlatform {
         throw new Error('Invalid job data received');
       }
       
-      this.jobs = data.jobs;
+      this.jobs = data.jobs.map(job => ({
+        ...job,
+        id: job.id || this.generateJobId(job),
+        skills: this.extractSkills(job),
+        isRemote: this.isRemoteJob(job),
+        experienceLevel: this.extractExperienceLevel(job),
+        salaryRange: this.extractSalaryRange(job)
+      }));
+      
       this.populateFilters();
       this.applyFilters();
       this.renderJobs();
-      
-      // Fetch AI scores in batches
       this.fetchAIScores();
+      this.analytics.trackJobsFetched(this.jobs.length, keyword);
       
     } catch (error) {
       console.error('Error fetching jobs:', error);
       this.showError('Failed to load jobs. Please try again.');
+      this.analytics.trackError('job_fetch_failed', error.message);
     } finally {
       this.isLoading = false;
     }
+  }
+
+  generateJobId(job) {
+    return btoa(job.url || job.title + job.company_name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
+  }
+
+  extractSkills(job) {
+    const text = `${job.title} ${job.description}`.toLowerCase();
+    const skillKeywords = [
+      'javascript', 'python', 'react', 'node.js', 'aws', 'docker', 'kubernetes',
+      'machine learning', 'data analysis', 'sql', 'mongodb', 'postgresql',
+      'figma', 'adobe', 'photoshop', 'sketch', 'git', 'jenkins', 'terraform'
+    ];
+    
+    return skillKeywords.filter(skill => text.includes(skill));
+  }
+
+  isRemoteJob(job) {
+    const text = `${job.title} ${job.description} ${job.candidate_required_location}`.toLowerCase();
+    return text.includes('remote') || text.includes('work from home') || text.includes('wfh');
+  }
+
+  extractExperienceLevel(job) {
+    const title = job.title.toLowerCase();
+    if (title.includes('senior') || title.includes('lead') || title.includes('principal')) return 'Senior';
+    if (title.includes('junior') || title.includes('entry') || title.includes('intern')) return 'Entry';
+    return 'Mid';
+  }
+
+  extractSalaryRange(job) {
+    if (!job.salary) return null;
+    const numbers = job.salary.match(/\d+/g);
+    if (numbers && numbers.length >= 1) {
+      const min = parseInt(numbers[0]);
+      const max = numbers.length > 1 ? parseInt(numbers[1]) : min * 1.5;
+      return { min, max };
+    }
+    return null;
   }
 
   async loadTrendingJobs() {
@@ -125,6 +230,7 @@ class CareerPlatform {
     this.currentPage = 1;
     this.applyFilters();
     this.renderJobs();
+    this.analytics.trackFilterUsed(filterType, value);
   }
 
   applyFilters() {
@@ -133,18 +239,18 @@ class CareerPlatform {
         return false;
       }
       
-      if (this.filters.experience) {
-        const title = job.title.toLowerCase();
-        switch (this.filters.experience) {
-          case 'entry':
-            return title.includes('junior') || title.includes('entry') || title.includes('intern');
-          case 'mid':
-            return !title.includes('senior') && !title.includes('lead') && !title.includes('principal');
-          case 'senior':
-            return title.includes('senior') || title.includes('lead') || title.includes('principal');
-          case 'executive':
-            return title.includes('director') || title.includes('vp') || title.includes('cto') || title.includes('ceo');
-        }
+      if (this.filters.experience && job.experienceLevel !== this.filters.experience) {
+        return false;
+      }
+      
+      if (this.filters.salary && job.salaryRange) {
+        const [min, max] = this.filters.salary.split('-').map(s => parseInt(s.replace('k', '000').replace('$', '').replace('+', '')));
+        if (max && job.salaryRange.min > max * 1000) return false;
+        if (min && job.salaryRange.max < min * 1000) return false;
+      }
+      
+      if (this.filters.remote && !job.isRemote) {
+        return false;
       }
       
       return true;
@@ -159,20 +265,46 @@ class CareerPlatform {
         this.filteredJobs.sort((a, b) => new Date(b.publication_date) - new Date(a.publication_date));
         break;
       case 'salary':
-        this.filteredJobs.sort((a, b) => this.extractSalary(b.salary) - this.extractSalary(a.salary));
+        this.filteredJobs.sort((a, b) => {
+          const aAvg = a.salaryRange ? (a.salaryRange.min + a.salaryRange.max) / 2 : 0;
+          const bAvg = b.salaryRange ? (b.salaryRange.min + b.salaryRange.max) / 2 : 0;
+          return bAvg - aAvg;
+        });
         break;
       case 'ai-score':
         this.filteredJobs.sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0));
         break;
-      default: // relevance
+      case 'relevance':
+      default:
+        // Sort by relevance score (calculated based on user preferences)
+        this.filteredJobs.sort((a, b) => this.calculateRelevanceScore(b) - this.calculateRelevanceScore(a));
         break;
     }
   }
 
-  extractSalary(salaryStr) {
-    if (!salaryStr) return 0;
-    const numbers = salaryStr.match(/\d+/g);
-    return numbers ? parseInt(numbers[0]) : 0;
+  calculateRelevanceScore(job) {
+    let score = 0;
+    
+    // Skills match
+    const userSkills = this.userPreferences.skills || [];
+    const skillMatches = job.skills.filter(skill => userSkills.includes(skill)).length;
+    score += skillMatches * 10;
+    
+    // Experience level match
+    if (this.userPreferences.experienceLevel === job.experienceLevel) {
+      score += 20;
+    }
+    
+    // Remote preference
+    if (this.userPreferences.preferRemote && job.isRemote) {
+      score += 15;
+    }
+    
+    // Recent jobs get slight boost
+    const daysOld = (Date.now() - new Date(job.publication_date)) / (1000 * 60 * 60 * 24);
+    score += Math.max(0, 30 - daysOld);
+    
+    return score;
   }
 
   renderJobs() {
@@ -196,16 +328,33 @@ class CareerPlatform {
   createJobCard(job) {
     const aiScore = job.aiScore || 'Loading...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
+    const isSaved = this.savedJobs.includes(job.id);
+    const relevanceScore = this.calculateRelevanceScore(job);
     
     return `
-      <div class="job-card" data-job-id="${job.id}">
+      <div class="job-card ${relevanceScore > 50 ? 'highly-relevant' : ''}" data-job-id="${job.id}">
+        <div class="job-card-header">
+          <div class="job-badges">
+            ${job.isRemote ? '<span class="badge remote">🌍 Remote</span>' : ''}
+            ${relevanceScore > 70 ? '<span class="badge hot">🔥 Perfect Match</span>' : ''}
+            ${job.salaryRange && job.salaryRange.max > 100000 ? '<span class="badge high-salary">💰 High Salary</span>' : ''}
+          </div>
+          <button class="save-btn ${isSaved ? 'saved' : ''}" onclick="careerPlatform.toggleSaveJob('${job.id}')" title="${isSaved ? 'Unsave' : 'Save'} job">
+            ${isSaved ? '❤️' : '🤍'}
+          </button>
+        </div>
+        
         <div class="job-header">
           <div>
             <h3 class="job-title">${job.title}</h3>
-            <div class="job-company">${job.company_name}</div>
+            <div class="job-company">
+              <span class="company-name">${job.company_name}</span>
+              ${this.getCompanyRating(job.company_name)}
+            </div>
           </div>
           <div class="ai-score ${aiScoreClass}">
-            🤖 ${typeof aiScore === 'number' ? `${aiScore}% Safe` : aiScore}
+            <span class="score-icon">🤖</span>
+            <span class="score-text">${typeof aiScore === 'number' ? `${aiScore}%` : aiScore}</span>
           </div>
         </div>
         
@@ -225,26 +374,153 @@ class CareerPlatform {
             </svg>
             ${job.job_type || 'Full-time'}
           </div>
+          <div class="job-meta-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2"/>
+              <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+              <path d="m22 21-3-3m0 0a5 5 0 1 0-7-7 5 5 0 0 0 7 7z" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            ${job.experienceLevel}
+          </div>
+          <div class="job-meta-item publish-date">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+              <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            ${this.getTimeAgo(job.publication_date)}
+          </div>
         </div>
+
+        ${job.skills.length > 0 ? `
+          <div class="job-skills">
+            ${job.skills.slice(0, 4).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+            ${job.skills.length > 4 ? `<span class="skill-more">+${job.skills.length - 4}</span>` : ''}
+          </div>
+        ` : ''}
         
         <div class="job-description">
-          ${this.truncateText(job.description || 'No description available', 120)}
+          ${this.truncateText(job.description || 'No description available', 150)}
         </div>
         
         <div class="job-footer">
-          <div class="job-salary">${job.salary || 'Salary not specified'}</div>
+          <div class="job-salary">
+            ${job.salaryRange ? 
+              `$${this.formatSalary(job.salaryRange.min)} - $${this.formatSalary(job.salaryRange.max)}` : 
+              job.salary || 'Salary not specified'
+            }
+          </div>
           <div class="job-actions">
             <button class="btn-secondary" onclick="careerPlatform.openJobModal('${job.id}')">
-              View Details
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/>
+                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              Details
             </button>
-            <a href="${job.url}" target="_blank" class="btn-primary">
-              Apply Now
+            <a href="${job.url}" target="_blank" class="btn-primary" onclick="careerPlatform.analytics.trackJobClick('${job.id}')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M7 17l9.2-9.2M17 17V7H7" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              Apply
             </a>
           </div>
         </div>
+        
+        ${relevanceScore > 50 ? `
+          <div class="relevance-indicator">
+            <span class="relevance-score">${Math.round(relevanceScore)}% Match</span>
+          </div>
+        ` : ''}
       </div>
     `;
   }
+
+  getCompanyRating(companyName) {
+    // Mock company rating system
+    const ratings = {
+      'Google': 4.9,
+      'Microsoft': 4.7,
+      'Apple': 4.8,
+      'Amazon': 4.2,
+      'Meta': 4.1,
+      'Netflix': 4.5
+    };
+    
+    const rating = ratings[companyName];
+    if (rating) {
+      return `<span class="company-rating">⭐ ${rating}</span>`;
+    }
+    return '';
+  }
+
+  formatSalary(amount) {
+    if (amount >= 1000000) return `${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `${(amount / 1000).toFixed(0)}K`;
+    return amount.toString();
+  }
+
+  getTimeAgo(dateStr) {
+    if (!dateStr) return 'Unknown';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffTime = Math.abs(now - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return '1 day ago';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
+    return `${Math.ceil(diffDays / 30)} months ago`;
+  }
+
+  toggleSaveJob(jobId) {
+    if (this.savedJobs.includes(jobId)) {
+      this.savedJobs = this.savedJobs.filter(id => id !== jobId);
+    } else {
+      this.savedJobs.push(jobId);
+    }
+    
+    localStorage.setItem('savedJobs', JSON.stringify(this.savedJobs));
+    this.renderJobs(); // Re-render to update save button state
+    this.analytics.trackJobSaved(jobId, this.savedJobs.includes(jobId));
+  }
+
+  loadUserPreferences() {
+    // Load and apply user preferences
+    if (this.userPreferences.preferredLocations) {
+      // Apply preferred locations to filter
+    }
+  }
+
+  updateInsights() {
+    // Update the insights section with real data
+    const skillsInDemand = this.getTopSkills();
+    this.updateSkillsInsight(skillsInDemand);
+  }
+
+  getTopSkills() {
+    const skillCounts = {};
+    this.jobs.forEach(job => {
+      job.skills.forEach(skill => {
+        skillCounts[skill] = (skillCounts[skill] || 0) + 1;
+      });
+    });
+    
+    return Object.entries(skillCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 6)
+      .map(([skill, count]) => ({ skill, count }));
+  }
+
+  updateSkillsInsight(skills) {
+    const skillTagsContainer = document.querySelector('.skill-tags');
+    if (skillTagsContainer && skills.length > 0) {
+      skillTagsContainer.innerHTML = skills.map(({skill, count}) => 
+        `<span class="skill-tag ${count > 10 ? 'hot' : ''}" title="${count} jobs">${skill}</span>`
+      ).join('');
+    }
+  }
+
+  // ... rest of the methods remain the same but with enhanced analytics tracking
 
   getAIScoreClass(score) {
     if (typeof score !== 'number') return '';
@@ -259,13 +535,13 @@ class CareerPlatform {
   }
 
   async fetchAIScores() {
-    const batchSize = 5;
-    const jobs = this.filteredJobs.slice(0, 20); // Limit to first 20 jobs
+    const batchSize = 3; // Reduced batch size for better performance
+    const jobs = this.filteredJobs.slice(0, 15); // Limit to first 15 jobs
     
     for (let i = 0; i < jobs.length; i += batchSize) {
       const batch = jobs.slice(i, i + batchSize);
       await Promise.all(batch.map(job => this.fetchJobAIScore(job)));
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1500)); // Increased delay for rate limiting
     }
   }
 
@@ -290,11 +566,10 @@ class CareerPlatform {
       let score = null;
       
       if (data.analysis) {
-        // Try to extract number from analysis
         const scoreMatch = data.analysis.match(/(\d+)/);
         if (scoreMatch) {
           score = parseInt(scoreMatch[1]);
-          if (score > 100) score = score % 100; // Handle cases like "score: 75"
+          if (score > 100) score = score % 100;
         }
       }
       
@@ -302,7 +577,6 @@ class CareerPlatform {
         job.aiScore = score;
         this.updateJobAIScore(job.id, score);
       } else {
-        // Fallback scoring based on job title keywords
         job.aiScore = this.getFallbackAIScore(job);
         this.updateJobAIScore(job.id, job.aiScore);
       }
@@ -311,12 +585,10 @@ class CareerPlatform {
       console.error('Error fetching AI score for job:', job.id, error);
       
       if (retryCount < maxRetries) {
-        // Retry after delay
         setTimeout(() => {
           this.fetchJobAIScore(job, retryCount + 1);
-        }, (retryCount + 1) * 2000);
+        }, (retryCount + 1) * 3000);
       } else {
-        // Final fallback
         job.aiScore = this.getFallbackAIScore(job);
         this.updateJobAIScore(job.id, job.aiScore);
       }
@@ -327,16 +599,11 @@ class CareerPlatform {
     const title = job.title.toLowerCase();
     const description = (job.description || '').toLowerCase();
     
-    // High AI safety jobs (tech, creative, strategy)
     const highSafetyKeywords = ['software', 'developer', 'engineer', 'designer', 'creative', 'strategy', 'manager', 'architect', 'lead', 'senior', 'principal', 'ai', 'machine learning', 'data scientist'];
-    
-    // Medium safety jobs
     const mediumSafetyKeywords = ['analyst', 'consultant', 'specialist', 'coordinator', 'officer', 'advisor'];
-    
-    // Lower safety jobs (repetitive, administrative)
     const lowerSafetyKeywords = ['clerk', 'assistant', 'operator', 'entry', 'junior', 'support'];
     
-    let score = 50; // Default score
+    let score = 50;
     
     for (const keyword of highSafetyKeywords) {
       if (title.includes(keyword) || description.includes(keyword)) {
@@ -359,7 +626,7 @@ class CareerPlatform {
       }
     }
     
-    return Math.min(Math.max(score, 20), 95); // Ensure score is between 20-95
+    return Math.min(Math.max(score, 20), 95);
   }
 
   updateJobAIScore(jobId, score) {
@@ -368,16 +635,21 @@ class CareerPlatform {
     
     const aiScoreElement = jobCard.querySelector('.ai-score');
     if (aiScoreElement) {
-      aiScoreElement.textContent = `🤖 ${score}% Safe`;
-      aiScoreElement.className = `ai-score ${this.getAIScoreClass(score)}`;
+      const scoreText = aiScoreElement.querySelector('.score-text');
+      if (scoreText) {
+        scoreText.textContent = `${score}%`;
+        aiScoreElement.className = `ai-score ${this.getAIScoreClass(score)}`;
+      }
     }
   }
+
+  // ... rest of existing methods
 
   attachJobEventListeners() {
     const jobCards = document.querySelectorAll('.job-card');
     jobCards.forEach(card => {
       card.addEventListener('click', (e) => {
-        if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A') {
+        if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'A' && !e.target.closest('.save-btn')) {
           const jobId = card.dataset.jobId;
           this.openJobModal(jobId);
         }
@@ -396,6 +668,7 @@ class CareerPlatform {
 
     const aiScore = job.aiScore || 'Analyzing...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
+    const relevanceScore = this.calculateRelevanceScore(job);
 
     modal.innerHTML = `
       <div class="modal-header">
@@ -404,26 +677,48 @@ class CareerPlatform {
       </div>
       <div class="modal-content">
         <div class="modal-meta">
-          <div class="modal-company">${job.company_name}</div>
-          <div class="ai-score ${aiScoreClass}">
-            🤖 ${typeof aiScore === 'number' ? `${aiScore}% Safe from AI` : aiScore}
+          <div class="modal-company">
+            <span class="company-name">${job.company_name}</span>
+            ${this.getCompanyRating(job.company_name)}
+          </div>
+          <div class="modal-scores">
+            <div class="ai-score ${aiScoreClass}">
+              🤖 ${typeof aiScore === 'number' ? `${aiScore}% Safe from AI` : aiScore}
+            </div>
+            ${relevanceScore > 50 ? `<div class="relevance-score">🎯 ${Math.round(relevanceScore)}% Match</div>` : ''}
           </div>
         </div>
         
         <div class="modal-details">
           <div class="detail-row">
             <strong>Location:</strong> ${job.candidate_required_location || 'Remote'}
+            ${job.isRemote ? '<span class="remote-badge">🌍 Remote OK</span>' : ''}
           </div>
           <div class="detail-row">
             <strong>Type:</strong> ${job.job_type || 'Full-time'}
           </div>
           <div class="detail-row">
-            <strong>Salary:</strong> ${job.salary || 'Not specified'}
+            <strong>Experience:</strong> ${job.experienceLevel}
+          </div>
+          <div class="detail-row">
+            <strong>Salary:</strong> ${job.salaryRange ? 
+              `$${this.formatSalary(job.salaryRange.min)} - $${this.formatSalary(job.salaryRange.max)}` : 
+              job.salary || 'Not specified'
+            }
           </div>
           <div class="detail-row">
             <strong>Published:</strong> ${this.formatDate(job.publication_date)}
           </div>
         </div>
+
+        ${job.skills.length > 0 ? `
+          <div class="modal-skills">
+            <h4>Skills & Technologies</h4>
+            <div class="skills-grid">
+              ${job.skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+            </div>
+          </div>
+        ` : ''}
         
         <div class="modal-description">
           <h3>Job Description</h3>
@@ -433,17 +728,21 @@ class CareerPlatform {
         </div>
         
         <div class="modal-actions">
-          <button class="btn-secondary" onclick="careerPlatform.askAIAboutJob('${job.id}')">
-            Ask AI Coach
+          <button class="btn-secondary" onclick="careerPlatform.toggleSaveJob('${job.id}'); careerPlatform.renderJobs();">
+            ${this.savedJobs.includes(job.id) ? '❤️ Saved' : '🤍 Save Job'}
           </button>
-          <a href="${job.url}" target="_blank" class="btn-primary">
-            Apply Now
+          <button class="btn-secondary" onclick="careerPlatform.askAIAboutJob('${job.id}')">
+            🤖 Ask AI Coach
+          </button>
+          <a href="${job.url}" target="_blank" class="btn-primary" onclick="careerPlatform.analytics.trackJobClick('${job.id}')">
+            Apply Now →
           </a>
         </div>
       </div>
     `;
 
     overlay.classList.add('open');
+    this.analytics.trackJobViewed(jobId);
   }
 
   closeJobModal() {
@@ -562,7 +861,47 @@ class CareerPlatform {
   }
 }
 
-// AI Assistant Class
+// Analytics Class
+class PlatformAnalytics {
+  constructor() {
+    this.events = [];
+  }
+
+  trackSearch(query) {
+    this.trackEvent('search', { query, timestamp: Date.now() });
+  }
+
+  trackJobsFetched(count, keyword) {
+    this.trackEvent('jobs_fetched', { count, keyword, timestamp: Date.now() });
+  }
+
+  trackFilterUsed(filterType, value) {
+    this.trackEvent('filter_used', { filterType, value, timestamp: Date.now() });
+  }
+
+  trackJobViewed(jobId) {
+    this.trackEvent('job_viewed', { jobId, timestamp: Date.now() });
+  }
+
+  trackJobClick(jobId) {
+    this.trackEvent('job_clicked', { jobId, timestamp: Date.now() });
+  }
+
+  trackJobSaved(jobId, saved) {
+    this.trackEvent('job_saved', { jobId, saved, timestamp: Date.now() });
+  }
+
+  trackError(errorType, message) {
+    this.trackEvent('error', { errorType, message, timestamp: Date.now() });
+  }
+
+  trackEvent(eventName, data) {
+    this.events.push({ eventName, data });
+    console.log(`Analytics: ${eventName}`, data);
+  }
+}
+
+// AI Assistant Class (Enhanced)
 class AIAssistant {
   constructor() {
     this.isOpen = false;
@@ -571,7 +910,9 @@ class AIAssistant {
       interests: null,
       skills: null,
       values: null,
-      experience: null
+      experience: null,
+      preferredLocations: null,
+      salaryExpectations: null
     };
     this.currentStep = 'greeting';
     this.init();
@@ -616,7 +957,6 @@ class AIAssistant {
     panel?.classList.add('open');
     this.isOpen = true;
     
-    // Focus on input
     setTimeout(() => {
       const input = document.getElementById('assistant-input');
       input?.focus();
@@ -630,7 +970,7 @@ class AIAssistant {
   }
 
   addInitialMessage() {
-    this.addMessage('bot', "Hi! I'm your AI career coach. I can help you find the perfect job match, analyze your skills, and guide your career growth. What would you like to explore today?");
+    this.addMessage('bot', "Hi! I'm your AI career coach. I can help you find the perfect job match, analyze your skills, and guide your career growth. Try asking me:\n\n• 'What jobs match my skills?'\n• 'Should I apply for this role?'\n• 'How can I improve my resume?'\n\nWhat would you like to explore today?");
   }
 
   async handleUserMessage() {
@@ -642,7 +982,6 @@ class AIAssistant {
     this.addMessage('user', message);
     input.value = '';
     
-    // Show typing indicator
     this.showTyping();
     
     try {
@@ -657,7 +996,7 @@ class AIAssistant {
   }
 
   async getAIResponse(userMessage) {
-    const context = this.buildContext(userMessage);
+    const context = this.buildEnhancedContext(userMessage);
     
     const response = await fetch('/api/grok', {
       method: 'POST',
@@ -673,8 +1012,8 @@ class AIAssistant {
     return data.analysis || "I'm not sure how to help with that. Could you tell me more about your career goals?";
   }
 
-  buildContext(currentMessage) {
-    const conversationHistory = this.conversation.slice(-6).map(msg => 
+  buildEnhancedContext(currentMessage) {
+    const conversationHistory = this.conversation.slice(-8).map(msg => 
       `${msg.sender}: ${msg.content}`
     ).join('\n');
     
@@ -682,41 +1021,52 @@ class AIAssistant {
       .filter(([key, value]) => value)
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ');
+
+    const currentJobs = careerPlatform.jobs.slice(0, 5).map(job => 
+      `${job.title} at ${job.company_name} (${job.experienceLevel}, ${job.isRemote ? 'Remote' : job.candidate_required_location})`
+    ).join(', ');
     
     return `
-      You are an expert career coach. Have a natural conversation helping with career advice.
+      You are an expert career coach with deep knowledge of the job market, career development, and professional growth. Have a natural, helpful conversation.
       
-      User Profile: ${profileInfo || 'Not yet collected'}
+      User Profile: ${profileInfo || 'Not yet collected - consider asking about their background'}
       
       Recent conversation:
       ${conversationHistory}
       
+      Current available jobs: ${currentJobs}
+      
       Current message: ${currentMessage}
       
       Instructions:
-      - Be conversational and helpful
-      - Ask follow-up questions to understand the user better
-      - If you don't know their background, ask about interests, skills, or career goals
-      - Provide specific, actionable advice
-      - Keep responses concise but valuable
-      - If they ask about specific jobs, help them understand if it's a good fit
+      - Be conversational, empathetic, and actionable
+      - Ask smart follow-up questions to understand the user better
+      - Provide specific, personalized advice based on their profile
+      - If discussing jobs, reference the available positions when relevant
+      - Help with resume tips, interview prep, skill development, and career strategy
+      - Keep responses helpful but concise (under 200 words)
+      - If they seem confused or need direction, offer specific next steps
     `;
   }
 
   updateConversationFlow(userMessage, botResponse) {
-    // Extract key information from the conversation
     const message = userMessage.toLowerCase();
     
-    if (!this.userProfile.interests && (message.includes('interested') || message.includes('like') || message.includes('passion'))) {
+    // Enhanced profile extraction
+    if (!this.userProfile.interests && (message.includes('interested') || message.includes('like') || message.includes('passion') || message.includes('enjoy'))) {
       this.userProfile.interests = userMessage;
     }
     
-    if (!this.userProfile.skills && (message.includes('skill') || message.includes('experience') || message.includes('good at'))) {
+    if (!this.userProfile.skills && (message.includes('skill') || message.includes('experience') || message.includes('good at') || message.includes('know'))) {
       this.userProfile.skills = userMessage;
     }
     
-    if (!this.userProfile.values && (message.includes('value') || message.includes('important') || message.includes('looking for'))) {
+    if (!this.userProfile.values && (message.includes('value') || message.includes('important') || message.includes('looking for') || message.includes('want'))) {
       this.userProfile.values = userMessage;
+    }
+
+    if (!this.userProfile.experience && (message.includes('years') || message.includes('worked') || message.includes('experience'))) {
+      this.userProfile.experience = userMessage;
     }
   }
 
@@ -726,32 +1076,38 @@ class AIAssistant {
     this.addMessage('user', message);
     this.showTyping();
     
-    // Create a specialized prompt for job analysis
     setTimeout(async () => {
       try {
         const context = `
-          The user is asking about this job:
+          The user is asking about this specific job:
           Title: ${job.title}
           Company: ${job.company_name}
           Location: ${job.candidate_required_location}
+          Type: ${job.job_type}
+          Experience Level: ${job.experienceLevel}
+          Skills Required: ${job.skills.join(', ')}
           Description: ${job.description}
+          Salary: ${job.salaryRange ? `$${job.salaryRange.min}-${job.salaryRange.max}` : 'Not specified'}
           
           User Profile: ${Object.entries(this.userProfile).filter(([k,v]) => v).map(([k,v]) => `${k}: ${v}`).join(', ') || 'Limited information available'}
           
-          Provide helpful analysis about:
-          1. Whether this role aligns with their interests/skills
-          2. Growth opportunities
-          3. What questions they should ask in an interview
-          4. Any red flags or concerns
+          Provide comprehensive analysis covering:
+          1. Job fit assessment based on their background
+          2. Growth and learning opportunities
+          3. Salary competitiveness and negotiation tips
+          4. Company culture and reputation insights
+          5. Specific interview preparation advice
+          6. Any potential red flags or concerns
+          7. Next steps if they're interested
           
-          Be specific and actionable.
+          Be specific, actionable, and encouraging while being honest about any concerns.
         `;
         
         const response = await fetch('/api/grok', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            jobTitle: "Job Analysis",
+            jobTitle: "Detailed Job Analysis",
             jobDescription: context,
             mode: "chatbot"
           })
@@ -759,12 +1115,12 @@ class AIAssistant {
         
         const data = await response.json();
         this.hideTyping();
-        this.addMessage('bot', data.analysis || "This looks like an interesting opportunity! What specific aspects would you like me to analyze?");
+        this.addMessage('bot', data.analysis || "This looks like an interesting opportunity! Based on the role details, I can help you evaluate if it's a good fit. What specific aspects would you like me to focus on?");
       } catch (error) {
         this.hideTyping();
-        this.addMessage('bot', "I'd be happy to help analyze this job opportunity! What specific questions do you have about the role?");
+        this.addMessage('bot', "I'd be happy to help analyze this job opportunity! What specific questions do you have about the role, company, or how it fits your career goals?");
       }
-    }, 1500);
+    }, 2000);
   }
 
   addMessage(sender, content) {
@@ -835,126 +1191,311 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Add CSS for typing indicator and other dynamic elements
-const additionalStyles = `
+// Enhanced CSS for new features
+const enhancedStyles = `
 <style>
-.typing-dots {
+/* Enhanced Job Card Styles */
+.job-card {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.job-card.highly-relevant {
+  border: 2px solid var(--accent);
+  box-shadow: 0 8px 32px rgba(233, 69, 96, 0.15);
+}
+
+.job-card-header {
   display: flex;
-  gap: 4px;
-  padding: 8px 0;
-}
-
-.typing-dots span {
-  width: 6px;
-  height: 6px;
-  background: var(--neutral-400);
-  border-radius: 50%;
-  animation: typing-bounce 1.4s ease-in-out infinite both;
-}
-
-.typing-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes typing-bounce {
-  0%, 80%, 100% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  40% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-.error-state, .empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--neutral-600);
-}
-
-.error-icon, .empty-icon {
-  font-size: 48px;
+  justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 16px;
 }
 
-.modal-header {
-  padding: 24px;
-  border-bottom: 1px solid var(--neutral-200);
+.job-badges {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.modal-close {
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge.remote {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.badge.hot {
+  background: rgba(233, 69, 96, 0.1);
+  color: var(--accent);
+  animation: pulse-glow 2s infinite;
+}
+
+.badge.high-salary {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning);
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.save-btn {
   background: none;
   border: none;
-  font-size: 24px;
-  color: var(--neutral-500);
+  font-size: 20px;
   cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  transition: var(--transition);
-}
-
-.modal-close:hover {
-  background: var(--neutral-100);
-  color: var(--neutral-700);
-}
-
-.modal-content {
-  padding: 24px;
-}
-
-.modal-meta {
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  width: 40px;
+  height: 40px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  justify-content: center;
 }
 
-.modal-company {
-  font-size: 18px;
+.save-btn:hover {
+  background: rgba(233, 69, 96, 0.1);
+  transform: scale(1.1);
+}
+
+.save-btn.saved {
+  animation: heartbeat 0.6s ease-in-out;
+}
+
+@keyframes heartbeat {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.company-name {
   font-weight: 600;
   color: var(--neutral-700);
 }
 
-.modal-details {
-  margin-bottom: 24px;
+.company-rating {
+  font-size: 12px;
+  color: var(--warning);
+  margin-left: 8px;
 }
 
-.detail-row {
+.ai-score {
   display: flex;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
   font-size: 14px;
-}
-
-.detail-row strong {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   min-width: 80px;
-  color: var(--neutral-700);
+  justify-content: center;
 }
 
-.modal-description h3 {
+.score-icon {
+  font-size: 16px;
+}
+
+.job-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.skill-tag {
+  background: var(--neutral-200);
+  color: var(--neutral-700);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.skill-more {
+  background: var(--neutral-300);
+  color: var(--neutral-600);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.job-meta-item.publish-date {
+  color: var(--neutral-500);
+  font-size: 13px;
+}
+
+.relevance-indicator {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: var(--accent);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  transform: rotate(15deg);
+}
+
+.relevance-score {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Enhanced Modal Styles */
+.modal-scores {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-skills {
+  margin: 20px 0;
+}
+
+.modal-skills h4 {
   margin-bottom: 12px;
   color: var(--neutral-900);
+  font-size: 16px;
 }
 
-.description-content {
-  line-height: 1.6;
-  color: var(--neutral-700);
-  margin-bottom: 24px;
-}
-
-.modal-actions {
+.skills-grid {
   display: flex;
-  gap: 12px;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.remote-badge {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 8px;
+}
+
+/* Enhanced Button Styles */
+.btn-primary, .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover, .btn-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* List View Styles */
+.jobs-container.list-view .job-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 20px;
+  min-height: 120px;
+}
+
+.jobs-container.list-view .job-header {
+  flex: 1;
+  margin-right: 20px;
+}
+
+.jobs-container.list-view .job-meta {
+  display: flex;
+  gap: 20px;
+  margin: 8px 0;
+}
+
+.jobs-container.list-view .job-description {
+  display: none;
+}
+
+.jobs-container.list-view .job-footer {
+  margin-left: auto;
+  text-align: right;
+}
+
+/* Typing indicator enhancements */
+.typing-dots span {
+  background: var(--accent);
+}
+
+/* Loading animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.job-card {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Responsive enhancements */
+@media (max-width: 768px) {
+  .job-badges {
+    margin-bottom: 8px;
+  }
+  
+  .save-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+  
+  .job-skills {
+    margin: 8px 0;
+  }
+  
+  .skill-tag {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .skill-tag {
+    background: var(--neutral-700);
+    color: var(--neutral-300);
+  }
+  
+  .badge.remote {
+    background: rgba(16, 185, 129, 0.2);
+  }
+  
+  .badge.hot {
+    background: rgba(233, 69, 96, 0.2);
+  }
+  
+  .badge.high-salary {
+    background: rgba(245, 158, 11, 0.2);
+  }
 }
 </style>
 `;
 
-document.head.insertAdjacentHTML('beforeend', additionalStyles);
+document.head.insertAdjacentHTML('beforeend', enhancedStyles);
