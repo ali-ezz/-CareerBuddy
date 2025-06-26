@@ -1,4 +1,107 @@
 // Advanced Career Platform - Main JavaScript
+/**
+ * Handles AI scoring for jobs (isolated from chat logic)
+ */
+class AICardScorer {
+  constructor(apiUrl) {
+    this.apiUrl = apiUrl;
+    this.maxRetries = 4;
+    this.retryDelay = 4000;
+  }
+
+  async scoreJob(job, onScore, onError, retryCount = 0) {
+    try {
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: job.title,
+          jobDescription: job.description || job.title
+        })
+      });
+
+      if (!response.ok) {
+        let isRateLimit = false;
+        let retryAfter = null;
+        try {
+          const errorData = await response.json();
+          if (
+            errorData?.error?.code === "rate_limit_exceeded" ||
+            (errorData?.details && errorData.details.includes("rate limit"))
+          ) {
+            isRateLimit = true;
+            retryAfter = errorData.retry_after || null;
+          }
+        } catch (e) {}
+        if (isRateLimit && retryCount < this.maxRetries) {
+          const wait = retryAfter ? Math.ceil(retryAfter * 1000) : this.retryDelay * (retryCount + 1);
+          setTimeout(() => {
+            this.scoreJob(job, onScore, onError, retryCount + 1);
+          }, wait);
+          return;
+        } else {
+          onError && onError("AI scoring failed after several attempts.");
+          return;
+        }
+      }
+
+      const data = await response.json();
+      let score = null;
+      if (data.analysis) {
+        const scoreMatch = data.analysis.match(/(\d+)/);
+        if (scoreMatch) {
+          score = parseInt(scoreMatch[1]);
+          if (score > 100) score = score % 100;
+        }
+      }
+      if (score !== null && score >= 0 && score <= 100) {
+        onScore && onScore(score);
+      } else {
+        onScore && onScore(this.getFallbackAIScore(job));
+      }
+    } catch (error) {
+      if (retryCount < this.maxRetries) {
+        setTimeout(() => {
+          this.scoreJob(job, onScore, onError, retryCount + 1);
+        }, this.retryDelay * (retryCount + 1));
+      } else {
+        onError && onError("AI scoring failed after several attempts.");
+      }
+    }
+  }
+
+  getFallbackAIScore(job) {
+    const title = job.title.toLowerCase();
+    const description = (job.description || '').toLowerCase();
+    const highSafetyKeywords = ['software', 'developer', 'engineer', 'designer', 'creative', 'strategy', 'manager', 'architect', 'lead', 'senior', 'principal', 'ai', 'machine learning', 'data scientist'];
+    const mediumSafetyKeywords = ['analyst', 'consultant', 'specialist', 'coordinator', 'officer', 'advisor'];
+    const lowerSafetyKeywords = ['clerk', 'assistant', 'operator', 'entry', 'junior', 'support'];
+    let score = 50;
+    for (const keyword of highSafetyKeywords) {
+      if (title.includes(keyword) || description.includes(keyword)) {
+        score = Math.max(score, 75 + Math.floor(Math.random() * 20));
+        break;
+      }
+    }
+    for (const keyword of mediumSafetyKeywords) {
+      if (title.includes(keyword) || description.includes(keyword)) {
+        score = Math.max(score, 55 + Math.floor(Math.random() * 20));
+        break;
+      }
+    }
+    for (const keyword of lowerSafetyKeywords) {
+      if (title.includes(keyword) || description.includes(keyword)) {
+        score = Math.min(score, 45 + Math.floor(Math.random() * 15));
+        break;
+      }
+    }
+    return Math.min(Math.max(score, 20), 95);
+  }
+}
+
+/**
+ * Main Career Platform (job rendering, filtering, and AI scoring)
+ */
 class CareerPlatform {
   constructor() {
     this.jobs = [];
@@ -325,78 +428,41 @@ class CareerPlatform {
   }
 
   createJobCard(job) {
+    // Clean, modern, single-card-per-job rendering
     const aiScore = job.aiScore || 'Loading...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
     const relevanceScore = this.calculateRelevanceScore(job);
-    
+
     return `
-      <div class="job-card ${relevanceScore > 50 ? 'highly-relevant' : ''}" data-job-id="${job.id}">
-        <div class="job-card-header">
-          <div class="job-badges">
-            ${job.isRemote ? '<span class="badge remote">🌍 Remote</span>' : ''}
-            ${relevanceScore > 70 ? '<span class="badge hot">🔥 Perfect Match</span>' : ''}
-            ${job.salaryRange && job.salaryRange.max > 100000 ? '<span class="badge high-salary">💰 High Salary</span>' : ''}
-          </div>
-        </div>
-        
-        <div class="job-header">
-          <div>
+      <div class="job-card" data-job-id="${job.id}">
+        <div class="job-card-top">
+          <div class="job-card-header">
             <h3 class="job-title">${job.title}</h3>
-            <div class="job-company">
-              <span class="company-name">${job.company_name}</span>
-              ${this.getCompanyRating(job.company_name)}
+            <div class="ai-score ${aiScoreClass}">
+              <span class="score-icon">🤖</span>
+              <span class="score-text">${typeof aiScore === 'number' ? `${aiScore}%` : aiScore}</span>
             </div>
           </div>
-          <div class="ai-score ${aiScoreClass}">
-            <span class="score-icon">🤖</span>
-            <span class="score-text">${typeof aiScore === 'number' ? `${aiScore}%` : aiScore}</span>
+          <div class="job-company">
+            <span class="company-name">${job.company_name}</span>
+            ${this.getCompanyRating(job.company_name)}
           </div>
+          <div class="job-meta">
+            <span class="job-meta-item">${job.candidate_required_location || 'Remote'}</span>
+            <span class="job-meta-item">${job.job_type || 'Full-time'}</span>
+            <span class="job-meta-item">${job.experienceLevel}</span>
+            <span class="job-meta-item">${this.getTimeAgo(job.publication_date)}</span>
+          </div>
+          ${job.skills.length > 0 ? `
+            <div class="job-skills">
+              ${job.skills.slice(0, 4).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+              ${job.skills.length > 4 ? `<span class="skill-more">+${job.skills.length - 4}</span>` : ''}
+            </div>
+          ` : ''}
         </div>
-        
-        <div class="job-meta">
-          <div class="job-meta-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke="currentColor" stroke-width="2"/>
-              <circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${job.candidate_required_location || 'Remote'}
-          </div>
-          <div class="job-meta-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
-              <line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="2"/>
-              <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${job.job_type || 'Full-time'}
-          </div>
-          <div class="job-meta-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2"/>
-              <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
-              <path d="m22 21-3-3m0 0a5 5 0 1 0-7-7 5 5 0 0 0 7 7z" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${job.experienceLevel}
-          </div>
-          <div class="job-meta-item publish-date">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-              <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${this.getTimeAgo(job.publication_date)}
-          </div>
-        </div>
-
-        ${job.skills.length > 0 ? `
-          <div class="job-skills">
-            ${job.skills.slice(0, 4).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
-            ${job.skills.length > 4 ? `<span class="skill-more">+${job.skills.length - 4}</span>` : ''}
-          </div>
-        ` : ''}
-        
         <div class="job-description">
           ${this.truncateText(job.description || 'No description available', 150)}
         </div>
-        
         <div class="job-footer">
           <div class="job-salary">
             ${job.salaryRange ? 
@@ -406,26 +472,13 @@ class CareerPlatform {
           </div>
           <div class="job-actions">
             <button class="btn-secondary" onclick="careerPlatform.openJobModal('${job.id}')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/>
-                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-              </svg>
               Details
             </button>
             <a href="${job.url}" target="_blank" class="btn-primary" onclick="careerPlatform.analytics.trackJobClick('${job.id}')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M7 17l9.2-9.2M17 17V7H7" stroke="currentColor" stroke-width="2"/>
-              </svg>
               Apply
             </a>
           </div>
         </div>
-        
-        ${relevanceScore > 50 ? `
-          <div class="relevance-indicator">
-            <span class="relevance-score">${Math.round(relevanceScore)}% Match</span>
-          </div>
-        ` : ''}
       </div>
     `;
   }
