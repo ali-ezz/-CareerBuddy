@@ -26,7 +26,7 @@ async function fetchJobsAndScore(keyword) {
     for (const job of jobs) {
       renderJob(job, "Loading AI safety...");
     }
-    // Fetch AI scores in parallel and add More Info modal
+    // Fetch AI scores in parallel
     await Promise.all(jobs.map(async (job) => {
       try {
         const grokRes = await fetch('/api/grok', {
@@ -38,10 +38,9 @@ async function fetchJobsAndScore(keyword) {
           })
         });
         const { analysis } = await grokRes.json();
-        updateJobAI(job.id, analysis);
-        addMoreInfoHandler(job, analysis);
+        updateJobAI(job, analysis);
       } catch (err) {
-        updateJobAI(job.id, "AI error");
+        updateJobAI(job, "AI error");
       }
     }));
   } catch (err) {
@@ -50,14 +49,20 @@ async function fetchJobsAndScore(keyword) {
   }
 }
 
+function jobKey(job) {
+  // Use job.url as unique key (always present)
+  return btoa(unescape(encodeURIComponent(job.url))).replace(/=+$/, "");
+}
+
 function renderJob(job, aiAnalysis) {
+  const key = jobKey(job);
   const div = document.createElement("div");
   div.className = "job-card";
-  div.id = `job-${job.id}`;
+  div.id = `job-${key}`;
   div.innerHTML = `
     <div class="job-header">
       <h3>${job.title}</h3>
-      <button class="more-info-btn" data-jobid="${job.id}">More Info</button>
+      <button class="more-info-btn" data-jobkey="${key}">More Info</button>
     </div>
     <p><strong>Company:</strong> ${job.company_name}</p>
     <p><strong>Location:</strong> ${job.candidate_required_location}</p>
@@ -65,10 +70,12 @@ function renderJob(job, aiAnalysis) {
     <a href="${job.url}" target="_blank" class="job-link">View Job</a>
   `;
   jobContainer.appendChild(div);
+  addMoreInfoHandler(job, aiAnalysis);
 }
 
-function updateJobAI(jobId, aiAnalysis) {
-  const card = document.getElementById(`job-${jobId}`);
+function updateJobAI(job, aiAnalysis) {
+  const key = jobKey(job);
+  const card = document.getElementById(`job-${key}`);
   if (card) {
     const aiSpan = card.querySelector(".ai-analysis");
     if (aiSpan) aiSpan.textContent = aiAnalysis;
@@ -76,7 +83,8 @@ function updateJobAI(jobId, aiAnalysis) {
 }
 
 function addMoreInfoHandler(job, aiAnalysis) {
-  const btn = document.querySelector(`#job-${job.id} .more-info-btn`);
+  const key = jobKey(job);
+  const btn = document.querySelector(`#job-${key} .more-info-btn`);
   if (btn) {
     btn.onclick = () => showModal(job, aiAnalysis);
   }
