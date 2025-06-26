@@ -140,7 +140,7 @@ class CareerPlatform {
   async fetchJobs(keyword = 'trending') {
     try {
       this.isLoading = true;
-      const response = await fetch(`/api/jobFetcher?keyword=${encodeURIComponent(keyword)}`);
+      const response = await fetch(`https://career-buddy-with-ai.vercel.app/api/jobFetcher?keyword=${encodeURIComponent(keyword)}`);
       const data = await response.json();
       
       if (!data.jobs || !Array.isArray(data.jobs)) {
@@ -534,7 +534,7 @@ class CareerPlatform {
     const retryDelay = 4000;
 
     try {
-      const response = await fetch('/api/grok', {
+      const response = await fetch('https://career-buddy-with-ai.vercel.app/api/grok', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -558,13 +558,15 @@ class CareerPlatform {
           }
         } catch (e) {}
         if (isRateLimit && retryCount < maxRetries) {
-          this.showAIRateLimitReminder(friendlyMessage);
+          // Only show a subtle reminder, not an error, during retries
+          if (retryCount === 0) this.showAIRateLimitReminder(friendlyMessage);
           setTimeout(() => {
             this.fetchJobAIScore(job, retryCount + 1);
           }, retryDelay * (retryCount + 1));
           return;
         } else {
-          this.showAIRateLimitReminder(friendlyMessage);
+          // Only show error after all retries
+          this.showAIRateLimitReminder("AI scoring failed after several attempts. Showing fallback score.");
           throw new Error(`HTTP ${response.status}`);
         }
       }
@@ -1013,7 +1015,7 @@ class AIAssistant {
     try {
       const prompt = this.buildChatPrompt(userMessage);
       
-      const response = await fetch('/api/grok', {
+      const response = await fetch('https://career-buddy-with-ai.vercel.app/api/grok', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1137,7 +1139,7 @@ Respond directly as the career coach:`;
           Be specific, actionable, and encouraging while being honest about any concerns.
         `;
         
-        const response = await fetch('/api/grok', {
+        const response = await fetch('https://career-buddy-with-ai.vercel.app/api/grok', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
