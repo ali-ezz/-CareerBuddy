@@ -3,50 +3,214 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CareerBuddy – AI-Powered Career Platform</title>
+  <title>CareerBuddy – AI-Powered Career Intelligence Platform</title>
   <link rel="stylesheet" href="style.css"/>
-  <link rel="icon" href="https://cdn.jsdelivr.net/gh/phosphor-icons/web/src/icons/briefcase-duotone.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>" />
 </head>
 <body>
-  <header class="main-header">
-    <div class="logo-area">
-      <img src="https://cdn.jsdelivr.net/gh/phosphor-icons/web/src/icons/briefcase-duotone.svg" alt="CareerBuddy Logo" class="logo"/>
-      <h1>CareerBuddy</h1>
+  <nav class="main-nav">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <div class="brand-icon">🎯</div>
+        <h1>CareerBuddy</h1>
+        <span class="beta-tag">AI</span>
+      </div>
+      <div class="nav-actions">
+        <button class="nav-btn" id="dashboard-btn">Dashboard</button>
+        <button class="nav-btn primary" id="get-started-btn">Get Started</button>
+      </div>
     </div>
-    <div class="header-actions">
-      <span class="tagline">Discover your future. AI-powered career guidance.</span>
-      <button id="favorites-toggle" title="Show Favorites" aria-label="Show Favorites">★</button>
-    </div>
-  </header>
-  <main>
-    <section class="hero-section">
-      <h2>Find your next career move</h2>
-      <p>Explore trending jobs, get AI-powered safety scores, and chat with our smart career coach.</p>
-      <div class="search-bar">
-        <input id="keyword" placeholder="Search jobs or interests (e.g. AI, design, nurse)" />
-        <button id="search-btn">Search</button>
-        <select id="location-filter"><option value="">All Locations</option></select>
-        <select id="type-filter"><option value="">All Types</option></select>
+  </nav>
+
+  <main class="main-content">
+    <section class="hero">
+      <div class="hero-container">
+        <div class="hero-content">
+          <h1 class="hero-title">
+            Discover Your <span class="gradient-text">AI-Verified</span> Career Path
+          </h1>
+          <p class="hero-subtitle">
+            Advanced AI algorithms analyze thousands of jobs to find your perfect match. 
+            Get real-time market insights, skill gap analysis, and personalized career guidance.
+          </p>
+          <div class="hero-search">
+            <div class="search-container">
+              <input type="text" id="main-search" placeholder="Search by job title, skills, or interests..." />
+              <button class="search-btn" id="main-search-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                  <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="search-filters">
+              <select id="experience-filter" class="filter-select">
+                <option value="">Experience Level</option>
+                <option value="entry">Entry Level</option>
+                <option value="mid">Mid Level</option>
+                <option value="senior">Senior Level</option>
+                <option value="executive">Executive</option>
+              </select>
+              <select id="location-filter" class="filter-select">
+                <option value="">Location</option>
+              </select>
+              <select id="salary-filter" class="filter-select">
+                <option value="">Salary Range</option>
+                <option value="0-50k">$0 - $50k</option>
+                <option value="50k-100k">$50k - $100k</option>
+                <option value="100k-150k">$100k - $150k</option>
+                <option value="150k+">$150k+</option>
+              </select>
+            </div>
+          </div>
+          <div class="hero-stats">
+            <div class="stat">
+              <div class="stat-number">50K+</div>
+              <div class="stat-label">Active Jobs</div>
+            </div>
+            <div class="stat">
+              <div class="stat-number">95%</div>
+              <div class="stat-label">AI Accuracy</div>
+            </div>
+            <div class="stat">
+              <div class="stat-number">24/7</div>
+              <div class="stat-label">Career Coach</div>
+            </div>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="floating-cards">
+            <div class="floating-card card-1">
+              <div class="card-icon">💼</div>
+              <div class="card-title">Software Engineer</div>
+              <div class="card-score ai-safe">92% Safe</div>
+            </div>
+            <div class="floating-card card-2">
+              <div class="card-icon">🎨</div>
+              <div class="card-title">UX Designer</div>
+              <div class="card-score ai-safe">88% Safe</div>
+            </div>
+            <div class="floating-card card-3">
+              <div class="card-icon">📊</div>
+              <div class="card-title">Data Scientist</div>
+              <div class="card-score ai-safe">96% Safe</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
+
     <section class="jobs-section">
-      <h3 id="jobs-section-title">Trending Jobs</h3>
-      <div id="job-container" class="jobs"></div>
+      <div class="section-container">
+        <div class="section-header">
+          <h2 id="jobs-title">Trending Opportunities</h2>
+          <div class="section-controls">
+            <div class="view-toggle">
+              <button class="toggle-btn active" data-view="grid">Grid</button>
+              <button class="toggle-btn" data-view="list">List</button>
+            </div>
+            <select id="sort-filter" class="sort-select">
+              <option value="relevance">Most Relevant</option>
+              <option value="date">Latest</option>
+              <option value="salary">Highest Salary</option>
+              <option value="ai-score">AI Safety Score</option>
+            </select>
+          </div>
+        </div>
+        <div class="jobs-container" id="jobs-container">
+          <!-- Jobs will be loaded here -->
+        </div>
+        <div class="load-more-container">
+          <button class="load-more-btn" id="load-more-btn">Load More Jobs</button>
+        </div>
+      </div>
     </section>
-    <aside id="chatbot-dock">
-      <div id="chatbot-section" class="chatbot-section">
-        <h2><span class="icon">🤖</span> CareerBuddy Chatbot</h2>
-        <div id="chatbot-messages" class="chatbot-messages"></div>
-        <form id="chatbot-form">
-          <input id="chatbot-input" placeholder="Ask for job advice..." autocomplete="off" />
-          <button type="submit">Send</button>
+
+    <section class="insights-section">
+      <div class="section-container">
+        <h2>Market Insights</h2>
+        <div class="insights-grid">
+          <div class="insight-card">
+            <h3>Skills in Demand</h3>
+            <div class="skill-tags">
+              <span class="skill-tag hot">Python</span>
+              <span class="skill-tag hot">React</span>
+              <span class="skill-tag">Machine Learning</span>
+              <span class="skill-tag">AWS</span>
+            </div>
+          </div>
+          <div class="insight-card">
+            <h3>Salary Trends</h3>
+            <div class="trend-chart">📈 +12% this quarter</div>
+          </div>
+          <div class="insight-card">
+            <h3>Remote Opportunities</h3>
+            <div class="remote-stats">68% of jobs offer remote work</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- AI Assistant -->
+  <div class="ai-assistant" id="ai-assistant">
+    <div class="assistant-toggle" id="assistant-toggle">
+      <div class="assistant-icon">🤖</div>
+      <div class="assistant-pulse"></div>
+    </div>
+    <div class="assistant-panel" id="assistant-panel">
+      <div class="assistant-header">
+        <h3>AI Career Coach</h3>
+        <button class="assistant-close" id="assistant-close">×</button>
+      </div>
+      <div class="assistant-messages" id="assistant-messages">
+        <div class="assistant-message bot">
+          <div class="message-avatar">🤖</div>
+          <div class="message-content">
+            Hi! I'm your AI career coach. I can help you find the perfect job match, analyze your skills, and guide your career growth. What would you like to explore today?
+          </div>
+        </div>
+      </div>
+      <div class="assistant-input">
+        <form id="assistant-form">
+          <input type="text" id="assistant-input" placeholder="Ask me anything about your career..." />
+          <button type="submit" class="send-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
         </form>
       </div>
-    </aside>
-  </main>
-  <footer>
-    <p>Powered by Remotive API & Grok AI. Data from O*NET, BLS, WEF, and more.</p>
+    </div>
+  </div>
+
+  <!-- Job Detail Modal -->
+  <div class="modal-overlay" id="job-modal-overlay">
+    <div class="job-modal" id="job-modal">
+      <!-- Modal content will be injected here -->
+    </div>
+  </div>
+
+  <footer class="main-footer">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <div class="brand-icon">🎯</div>
+        <span>CareerBuddy</span>
+      </div>
+      <div class="footer-links">
+        <a href="#privacy">Privacy</a>
+        <a href="#terms">Terms</a>
+        <a href="#api">API</a>
+        <a href="#contact">Contact</a>
+      </div>
+      <div class="footer-credits">
+        Powered by Remotive API & Grok AI
+      </div>
+    </div>
   </footer>
+
   <script src="script.js"></script>
 </body>
 </html>
