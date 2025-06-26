@@ -436,10 +436,11 @@ body {
 
 /* Jobs Container */
 .jobs-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 24px;
-  margin-bottom: 48px;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .jobs-container.list-view {
