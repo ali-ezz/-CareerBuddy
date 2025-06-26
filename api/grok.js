@@ -28,8 +28,11 @@ export default async function handler(req, res) {
     }
 
     const data = await grokRes.json();
-    const analysis = data.choices?.[0]?.message?.content || "No result.";
-    res.status(200).json({ analysis });
+    const content = data.choices?.[0]?.message?.content || "No result.";
+    // Extract the first number 0-100 from the response
+    const match = content.match(/\b([1-9]?[0-9]|100)\b/);
+    const score = match ? match[0] : "N/A";
+    res.status(200).json({ analysis: score });
   } catch (err) {
     console.error("Grok API error:", err);
     res.status(500).json({ error: "Grok API error", details: err.message });

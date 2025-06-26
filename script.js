@@ -105,7 +105,25 @@ function updateJobAI(job, aiAnalysis) {
   const card = document.getElementById(`job-${key}`);
   if (card) {
     const aiSpan = card.querySelector(".ai-analysis");
-    if (aiSpan) aiSpan.textContent = aiAnalysis;
+    if (aiSpan) {
+      let score = parseInt(aiAnalysis);
+      let badgeColor = "#10b981"; // green
+      if (isNaN(score)) {
+        aiSpan.textContent = "N/A";
+        aiSpan.style.background = "#e5e7eb";
+        aiSpan.style.color = "#222";
+      } else {
+        if (score < 40) badgeColor = "#ef4444"; // red
+        else if (score < 70) badgeColor = "#f59e42"; // orange
+        aiSpan.textContent = `${score}/100`;
+        aiSpan.style.background = badgeColor;
+        aiSpan.style.color = "#fff";
+        aiSpan.style.padding = "0.3rem 1.1rem";
+        aiSpan.style.borderRadius = "999px";
+        aiSpan.style.fontWeight = "bold";
+        aiSpan.style.marginLeft = "0.5rem";
+      }
+    }
   }
 }
 
@@ -154,10 +172,27 @@ if (chatbotForm && chatbotInput && chatbotMessages) {
     appendChatbotMessage("user", userMsg);
     chatbotInput.value = "";
     appendChatbotMessage("bot", "Thinking...");
-    // Placeholder: integrate Grok API here for real advice
-    setTimeout(() => {
-      chatbotMessages.lastChild.textContent = "Sorry, the chatbot is not yet connected to AI.";
-    }, 800);
+    // Integrate Grok API for real advice
+    try {
+      const res = await fetch('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: "Career Advice",
+          jobDescription: userMsg
+        })
+      });
+      const data = await res.json();
+      if (data.analysis) {
+        chatbotMessages.lastChild.textContent = data.analysis;
+      } else if (data.error) {
+        chatbotMessages.lastChild.textContent = "AI error: " + data.error;
+      } else {
+        chatbotMessages.lastChild.textContent = "AI error: " + JSON.stringify(data);
+      }
+    } catch (err) {
+      chatbotMessages.lastChild.textContent = "AI error: " + err.message;
+    }
   });
 }
 
