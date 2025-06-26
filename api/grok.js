@@ -4,6 +4,21 @@ export default async function handler(req, res) {
     const { jobTitle, jobDescription, mode } = req.body;
     const apiKey = process.env.GROK_API_KEY;
 
+    let messages;
+    if (mode === "chatbot") {
+      // Use the jobDescription as the full chat prompt/context from the frontend
+      messages = [
+        { role: "system", content: "You are an expert AI career coach. Be conversational, supportive, and provide actionable advice about jobs, skills, and career growth. Never mention risk scores or AI disruption unless asked directly." },
+        { role: "user", content: jobDescription }
+      ];
+    } else {
+      // Default: risk analysis for job safety
+      messages = [
+        { role: "system", content: "You are an expert on the future of work and AI automation." },
+        { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond with a short risk summary and a score from 0 (very at risk) to 100 (very safe).` }
+      ];
+    }
+
     const grokRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -12,11 +27,8 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "llama3-70b-8192",
-        messages: [
-          { role: "system", content: "You are an expert on the future of work and AI automation." },
-          { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond with a short risk summary and a score from 0 (very at risk) to 100 (very safe).` }
-        ],
-        max_tokens: 100,
+        messages,
+        max_tokens: 300,
         temperature: 0.2
       })
     });
