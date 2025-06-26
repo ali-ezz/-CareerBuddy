@@ -557,6 +557,8 @@ class CareerPlatform {
             isRateLimit = true;
           }
         } catch (e) {}
+        // Show a visible loading/retry indicator on the job card
+        this.updateJobAIScore(job.id, "Retrying...");
         if (isRateLimit && retryCount < maxRetries) {
           this.showAIRateLimitReminder(friendlyMessage);
           setTimeout(() => {
@@ -565,6 +567,7 @@ class CareerPlatform {
           return;
         } else {
           this.showAIRateLimitReminder(friendlyMessage);
+          this.updateJobAIScore(job.id, "AI unavailable");
           throw new Error(`HTTP ${response.status}`);
         }
       }
@@ -592,10 +595,12 @@ class CareerPlatform {
       console.error('Error fetching AI score for job:', job.id, error);
 
       if (retryCount < maxRetries) {
+        this.updateJobAIScore(job.id, "Retrying...");
         setTimeout(() => {
           this.fetchJobAIScore(job, retryCount + 1);
         }, retryDelay * (retryCount + 1));
       } else {
+        this.updateJobAIScore(job.id, "AI unavailable");
         job.aiScore = this.getFallbackAIScore(job);
         this.updateJobAIScore(job.id, job.aiScore);
       }
@@ -996,7 +1001,7 @@ class AIAssistant {
     this.addMessage('user', message);
     input.value = '';
     
-    this.showTyping();
+    this.showTyping("Connecting to AI...");
     
     try {
       const response = await this.getAIResponse(message);
@@ -1175,7 +1180,7 @@ Respond directly as the career coach:`;
     this.conversation.push({ sender, content, timestamp: Date.now() });
   }
 
-  showTyping() {
+  showTyping(text) {
     const messagesContainer = document.getElementById('assistant-messages');
     if (!messagesContainer) return;
     
@@ -1186,11 +1191,13 @@ Respond directly as the career coach:`;
     typingElement.innerHTML = `
       <div class="message-avatar">🤖</div>
       <div class="message-content">
+        ${text ? `<span>${text}</span>` : `
         <div class="typing-dots">
           <span></span>
           <span></span>
           <span></span>
         </div>
+        `}
       </div>
     `;
     
