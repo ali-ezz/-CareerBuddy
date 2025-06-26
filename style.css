@@ -437,9 +437,11 @@ body {
 /* Jobs Container */
 .jobs-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 28px;
+  margin-top: 24px;
   margin-bottom: 48px;
+  align-items: stretch;
 }
 
 .jobs-container.list-view {
