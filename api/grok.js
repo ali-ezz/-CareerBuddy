@@ -1,6 +1,3 @@
-// --- Unified AI API: Chatbot vs. Scoring ---
-// This file ensures chatbot and scoring are fully separated in logic and prompt.
-
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
   try {
@@ -9,12 +6,12 @@ export default async function handler(req, res) {
 
     let messages;
     if (mode === "chatbot") {
-      // Chatbot mode: conversational, never mention risk or scoring
+      // Use the jobDescription as the full chat prompt/context from the frontend
       messages = [
         { role: "system", content: `
-You are a professional, friendly, and highly knowledgeable AI career coach.
-- Respond with specific, actionable, and encouraging advice about jobs, skills, and career growth.
-- If the user shares their interests or goals, suggest concrete next steps, learning paths, or career options.
+You are a professional, friendly, and highly knowledgeable AI career coach. 
+- Always respond with specific, actionable, and encouraging advice about jobs, skills, and career growth.
+- If the user shares their interests or goals (e.g. "I want to be a pilot" or "I love programming"), suggest concrete next steps, learning paths, or career options.
 - Ask follow-up questions to help clarify their goals and provide tailored guidance.
 - Never respond with just a number or a generic fallback. Never mention risk scores or AI disruption unless asked directly.
 - If the user is unsure, help them explore their interests and strengths.
@@ -23,7 +20,7 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
         { role: "user", content: jobDescription }
       ];
     } else {
-      // Default: risk analysis for job safety (AI scoring)
+      // Default: risk analysis for job safety
       messages = [
         { role: "system", content: "You are an expert on the future of work and AI automation." },
         { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond in this exact format: "Risk Summary: [short summary]. Risk Score: [number from 0 (very at risk) to 100 (very safe)]".` }
@@ -37,7 +34,7 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "allam-2-7b",
+        model: "llama-3-8b-8192",
         messages,
         max_tokens: 300,
         temperature: 0.2
@@ -50,17 +47,18 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
       try {
         const errObj = JSON.parse(errText);
         if (errObj?.error?.code === "rate_limit_exceeded") {
+          // Try to extract suggested wait time from message
           const match = errObj.error.message.match(/try again in ([\d.]+)s/i);
           if (match) retryAfter = parseFloat(match[1]);
         }
       } catch {}
+      console.error("Grok API error:", errText);
       return res.status(429).json({ error: "Grok API error", details: errText, retry_after: retryAfter });
     }
 
     const data = await grokRes.json();
     const content = data.choices?.[0]?.message?.content || "No result.";
     if (mode === "chatbot") {
-      // Return full conversational response
       res.status(200).json({ analysis: content });
     } else {
       // Extract the risk summary and score from the response
@@ -71,6 +69,7 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
       res.status(200).json({ analysis: `Risk Summary: ${summary}. Risk Score: ${score}` });
     }
   } catch (err) {
+    console.error("Grok API error:", err);
     res.status(500).json({ error: "Grok API error", details: err.message });
   }
 }
