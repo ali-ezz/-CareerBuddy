@@ -544,9 +544,9 @@ class CareerPlatform {
       });
 
       if (!response.ok) {
-        // Try to parse Groq error for rate limit
         let friendlyMessage = "Error fetching AI score.";
         let isRateLimit = false;
+        let retryAfter = null;
         try {
           const errorData = await response.json();
           if (
@@ -555,17 +555,17 @@ class CareerPlatform {
           ) {
             friendlyMessage = "AI is busy right now (rate limit reached). Waiting and retrying...";
             isRateLimit = true;
+            retryAfter = errorData.retry_after || null;
           }
         } catch (e) {}
         if (isRateLimit && retryCount < maxRetries) {
-          // Only show a subtle reminder, not an error, during retries
           if (retryCount === 0) this.showAIRateLimitReminder(friendlyMessage);
+          const wait = retryAfter ? Math.ceil(retryAfter * 1000) : retryDelay * (retryCount + 1);
           setTimeout(() => {
             this.fetchJobAIScore(job, retryCount + 1);
-          }, retryDelay * (retryCount + 1));
+          }, wait);
           return;
         } else {
-          // Only show error after all retries
           this.showAIRateLimitReminder("AI scoring failed after several attempts. Showing fallback score.");
           throw new Error(`HTTP ${response.status}`);
         }

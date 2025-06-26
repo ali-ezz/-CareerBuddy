@@ -450,13 +450,14 @@ body {
 
 .job-card {
   background: white;
-  border: 2px solid red !important;
+  border: 1.5px solid var(--neutral-200);
   border-radius: var(--radius-lg);
   padding: 24px;
   transition: var(--transition);
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
 
 .job-card::before {

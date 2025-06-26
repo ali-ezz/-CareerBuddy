@@ -34,7 +34,7 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "allam-2-7b",
+        model: "meta-llama/llama-guard-4-12b",
         messages,
         max_tokens: 300,
         temperature: 0.2
@@ -43,8 +43,17 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
 
     if (!grokRes.ok) {
       const errText = await grokRes.text();
+      let retryAfter = null;
+      try {
+        const errObj = JSON.parse(errText);
+        if (errObj?.error?.code === "rate_limit_exceeded") {
+          // Try to extract suggested wait time from message
+          const match = errObj.error.message.match(/try again in ([\d.]+)s/i);
+          if (match) retryAfter = parseFloat(match[1]);
+        }
+      } catch {}
       console.error("Grok API error:", errText);
-      return res.status(500).json({ error: "Grok API error", details: errText });
+      return res.status(429).json({ error: "Grok API error", details: errText, retry_after: retryAfter });
     }
 
     const data = await grokRes.json();
