@@ -328,104 +328,76 @@ class CareerPlatform {
     const aiScore = job.aiScore || 'Loading...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
     const relevanceScore = this.calculateRelevanceScore(job);
-    
+
+    // Pick an emoji based on job type or title for visual identity
+    const icon = job.title.toLowerCase().includes('designer')
+      ? '🎨'
+      : job.title.toLowerCase().includes('data')
+      ? '📊'
+      : job.title.toLowerCase().includes('manager')
+      ? '🗂️'
+      : job.title.toLowerCase().includes('engineer') || job.title.toLowerCase().includes('developer')
+      ? '💻'
+      : job.title.toLowerCase().includes('marketing')
+      ? '📢'
+      : '💼';
+
     return `
-      <div class="job-card ${relevanceScore > 50 ? 'highly-relevant' : ''}" data-job-id="${job.id}">
-        <div class="job-card-header">
-          <div class="job-badges">
-            ${job.isRemote ? '<span class="badge remote">🌍 Remote</span>' : ''}
-            ${relevanceScore > 70 ? '<span class="badge hot">🔥 Perfect Match</span>' : ''}
-            ${job.salaryRange && job.salaryRange.max > 100000 ? '<span class="badge high-salary">💰 High Salary</span>' : ''}
-          </div>
-        </div>
-        
-        <div class="job-header">
-          <div>
-            <h3 class="job-title">${job.title}</h3>
+      <div class="job-card redesigned ${relevanceScore > 50 ? 'highly-relevant' : ''}" data-job-id="${job.id}">
+        <div class="job-card-accent"></div>
+        <div class="job-card-main">
+          <div class="job-card-icon">${icon}</div>
+          <div class="job-card-content">
+            <div class="job-card-top">
+              <h3 class="job-title">${job.title}</h3>
+              <div class="ai-score ${aiScoreClass}">
+                <span class="score-icon">🤖</span>
+                <span class="score-text">${typeof aiScore === 'number' ? `${aiScore}%` : aiScore}</span>
+              </div>
+            </div>
             <div class="job-company">
               <span class="company-name">${job.company_name}</span>
               ${this.getCompanyRating(job.company_name)}
+              ${job.isRemote ? '<span class="badge remote">Remote</span>' : ''}
             </div>
-          </div>
-          <div class="ai-score ${aiScoreClass}">
-            <span class="score-icon">🤖</span>
-            <span class="score-text">${typeof aiScore === 'number' ? `${aiScore}%` : aiScore}</span>
-          </div>
-        </div>
-        
-        <div class="job-meta">
-          <div class="job-meta-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke="currentColor" stroke-width="2"/>
-              <circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${job.candidate_required_location || 'Remote'}
-          </div>
-          <div class="job-meta-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
-              <line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="2"/>
-              <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${job.job_type || 'Full-time'}
-          </div>
-          <div class="job-meta-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2"/>
-              <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
-              <path d="m22 21-3-3m0 0a5 5 0 1 0-7-7 5 5 0 0 0 7 7z" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${job.experienceLevel}
-          </div>
-          <div class="job-meta-item publish-date">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-              <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${this.getTimeAgo(job.publication_date)}
-          </div>
-        </div>
-
-        ${job.skills.length > 0 ? `
-          <div class="job-skills">
-            ${job.skills.slice(0, 4).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
-            ${job.skills.length > 4 ? `<span class="skill-more">+${job.skills.length - 4}</span>` : ''}
-          </div>
-        ` : ''}
-        
-        <div class="job-description">
-          ${this.truncateText(job.description || 'No description available', 150)}
-        </div>
-        
-        <div class="job-footer">
-          <div class="job-salary">
-            ${job.salaryRange ? 
-              `$${this.formatSalary(job.salaryRange.min)} - $${this.formatSalary(job.salaryRange.max)}` : 
-              job.salary || 'Salary not specified'
-            }
-          </div>
-          <div class="job-actions">
-            <button class="btn-secondary" onclick="careerPlatform.openJobModal('${job.id}')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/>
-                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-              </svg>
-              Details
-            </button>
-            <a href="${job.url}" target="_blank" class="btn-primary" onclick="careerPlatform.analytics.trackJobClick('${job.id}')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M7 17l9.2-9.2M17 17V7H7" stroke="currentColor" stroke-width="2"/>
-              </svg>
-              Apply
-            </a>
+            <div class="job-meta-row">
+              <span class="job-meta-item">${job.candidate_required_location || 'Remote'}</span>
+              <span class="job-meta-item">${job.job_type || 'Full-time'}</span>
+              <span class="job-meta-item">${job.experienceLevel}</span>
+              <span class="job-meta-item publish-date">${this.getTimeAgo(job.publication_date)}</span>
+            </div>
+            ${job.skills.length > 0 ? `
+              <div class="job-skills">
+                ${job.skills.slice(0, 4).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+                ${job.skills.length > 4 ? `<span class="skill-more">+${job.skills.length - 4}</span>` : ''}
+              </div>
+            ` : ''}
+            <div class="job-description">
+              ${this.truncateText(job.description || 'No description available', 120)}
+            </div>
+            <div class="job-card-bottom">
+              <div class="job-salary">
+                ${job.salaryRange ? 
+                  `$${this.formatSalary(job.salaryRange.min)} - $${this.formatSalary(job.salaryRange.max)}` : 
+                  job.salary || 'Salary not specified'
+                }
+              </div>
+              <div class="job-actions">
+                <button class="btn-secondary" onclick="careerPlatform.openJobModal('${job.id}')">
+                  Details
+                </button>
+                <a href="${job.url}" target="_blank" class="btn-primary" onclick="careerPlatform.analytics.trackJobClick('${job.id}')">
+                  Apply
+                </a>
+              </div>
+            </div>
+            ${relevanceScore > 50 ? `
+              <div class="relevance-indicator">
+                <span class="relevance-score">${Math.round(relevanceScore)}% Match</span>
+              </div>
+            ` : ''}
           </div>
         </div>
-        
-        ${relevanceScore > 50 ? `
-          <div class="relevance-indicator">
-            <span class="relevance-score">${Math.round(relevanceScore)}% Match</span>
-          </div>
-        ` : ''}
       </div>
     `;
   }
