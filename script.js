@@ -599,15 +599,6 @@ class CareerPlatform {
         job.aiScore = this.getFallbackAIScore(job);
         this.updateJobAIScore(job.id, job.aiScore);
       }
-    } finally {
-      // Ensure loading state is removed after retries
-      const jobCard = document.querySelector(`[data-job-id="${job.id}"]`);
-      if (jobCard) {
-        const aiScoreElement = jobCard.querySelector('.ai-score');
-        if (aiScoreElement) {
-          aiScoreElement.textContent = job.aiScore ? `${job.aiScore}%` : "Error";
-        }
-      }
     }
   }
 
