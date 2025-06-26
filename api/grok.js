@@ -23,7 +23,7 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
       // Default: risk analysis for job safety
       messages = [
         { role: "system", content: "You are an expert on the future of work and AI automation." },
-        { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond in this exact format: "Risk Summary: [short summary]. Risk Score: [number from 0 (very at risk) to 100 (very safe)]".` }
+        { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond with a short risk summary and a score from 0 (very at risk) to 100 (very safe).` }
       ];
     }
 
@@ -34,7 +34,7 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "llama-3-8b-8192",
+        model: "llama-3.1-8b-instant",
         messages,
         max_tokens: 300,
         temperature: 0.2
@@ -43,17 +43,8 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
 
     if (!grokRes.ok) {
       const errText = await grokRes.text();
-      let retryAfter = null;
-      try {
-        const errObj = JSON.parse(errText);
-        if (errObj?.error?.code === "rate_limit_exceeded") {
-          // Try to extract suggested wait time from message
-          const match = errObj.error.message.match(/try again in ([\d.]+)s/i);
-          if (match) retryAfter = parseFloat(match[1]);
-        }
-      } catch {}
       console.error("Grok API error:", errText);
-      return res.status(429).json({ error: "Grok API error", details: errText, retry_after: retryAfter });
+      return res.status(500).json({ error: "Grok API error", details: errText });
     }
 
     const data = await grokRes.json();
@@ -61,12 +52,10 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
     if (mode === "chatbot") {
       res.status(200).json({ analysis: content });
     } else {
-      // Extract the risk summary and score from the response
-      const summaryMatch = content.match(/Risk Summary:(.*?)(?:\.|$)/i);
-      const scoreMatch = content.match(/Risk Score:\s*([0-9]{1,3})/i);
-      const summary = summaryMatch ? summaryMatch[1].trim() : "";
-      const score = scoreMatch ? scoreMatch[1] : "N/A";
-      res.status(200).json({ analysis: `Risk Summary: ${summary}. Risk Score: ${score}` });
+      // Extract the first number 0-100 from the response
+      const match = content.match(/\b([1-9]?[0-9]|100)\b/);
+      const score = match ? match[0] : "N/A";
+      res.status(200).json({ analysis: score });
     }
   } catch (err) {
     console.error("Grok API error:", err);
