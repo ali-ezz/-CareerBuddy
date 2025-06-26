@@ -155,6 +155,33 @@ aside#chatbot-dock {
   box-shadow: 0 8px 32px rgba(37,99,235,0.13);
   border-radius: 1.5rem;
   background: none;
+  display: none;
+}
+
+.chatbot-fab {
+  position: fixed;
+  right: 2.5vw;
+  bottom: 2.5vw;
+  z-index: 101;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 60%, var(--accent) 100%);
+  color: #fff;
+  font-size: 2.1rem;
+  border: none;
+  box-shadow: 0 4px 24px rgba(37,99,235,0.18);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+
+.chatbot-fab:hover, .chatbot-fab:focus {
+  background: linear-gradient(135deg, var(--accent) 60%, var(--primary) 100%);
+  box-shadow: 0 8px 32px rgba(16,185,129,0.18);
 }
 
 @media (max-width: 900px) {
@@ -428,23 +455,7 @@ main {
   gap: 1rem;
 }
 
-.fav-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: #f59e42;
-  cursor: pointer;
-  margin-left: 0.5rem;
-  transition: color 0.2s;
-  padding: 0 0.2rem;
-  line-height: 1;
-}
-
-.fav-btn[aria-label="Save job"]:hover,
-.fav-btn[aria-label="Save job"]:focus {
-  color: #ef4444;
-  outline: none;
-}
+/* Removed .fav-btn styles */
 
 .skeleton {
   pointer-events: none;

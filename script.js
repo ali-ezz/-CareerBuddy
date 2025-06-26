@@ -1,7 +1,6 @@
 const searchBtn = document.getElementById("search-btn");
 const keywordInput = document.getElementById("keyword");
 const jobContainer = document.getElementById("job-container");
-const favoritesToggle = document.getElementById("favorites-toggle");
 
 searchBtn.addEventListener("click", () => {
   const keyword = keywordInput.value.trim();
@@ -10,8 +9,6 @@ searchBtn.addEventListener("click", () => {
 });
 
 let allJobs = [];
-let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-let showFavoritesOnly = false;
 
 // --- Advanced Chatbot State ---
 let chatState = {
@@ -111,14 +108,6 @@ function populateTypeFilter(jobs) {
 
 document.getElementById("location-filter").addEventListener("change", renderFilteredJobs);
 
-if (favoritesToggle) {
-  favoritesToggle.addEventListener("click", () => {
-    showFavoritesOnly = !showFavoritesOnly;
-    favoritesToggle.classList.toggle("active", showFavoritesOnly);
-    renderFilteredJobs();
-  });
-}
-
 function renderFilteredJobs() {
   const locFilter = document.getElementById("location-filter");
   const typeFilter = document.getElementById("type-filter");
@@ -132,10 +121,7 @@ function renderFilteredJobs() {
   if (selectedType) {
     jobsToShow = jobsToShow.filter(j => j.job_type === selectedType);
   }
-  if (showFavoritesOnly) {
-    jobsToShow = jobsToShow.filter(j => favorites.includes(jobKey(j)));
-    document.getElementById("jobs-section-title").textContent = "Your Favorite Jobs";
-  } else if (!document.getElementById("keyword").value.trim()) {
+  if (!document.getElementById("keyword").value.trim()) {
     document.getElementById("jobs-section-title").textContent = "Trending Jobs";
   } else {
     document.getElementById("jobs-section-title").textContent = "Job Results";
@@ -156,7 +142,6 @@ function jobKey(job) {
 
 function renderJob(job, aiAnalysis) {
   const key = jobKey(job);
-  const isFav = favorites.includes(key);
   const div = document.createElement("div");
   div.className = "job-card";
   div.id = `job-${key}`;
@@ -164,7 +149,6 @@ function renderJob(job, aiAnalysis) {
     <div class="job-header">
       <h3>${job.title}</h3>
       <button class="more-info-btn" data-jobkey="${key}">More Info</button>
-      <button class="fav-btn" title="Save job" data-jobkey="${key}" aria-label="Save job">${isFav ? "★" : "☆"}</button>
     </div>
     <p><strong>Company:</strong> ${job.company_name}</p>
     <p><strong>Location:</strong> ${job.candidate_required_location}</p>
@@ -174,7 +158,6 @@ function renderJob(job, aiAnalysis) {
   `;
   jobContainer.appendChild(div);
   addMoreInfoHandler(job, aiAnalysis);
-  addFavoriteHandler(job);
 }
 
 function updateJobAI(job, aiAnalysis) {
@@ -186,7 +169,7 @@ function updateJobAI(job, aiAnalysis) {
       let score = parseInt(aiAnalysis);
       let badgeColor = "#10b981"; // green
       if (isNaN(score)) {
-        aiSpan.textContent = "N/A";
+        aiSpan.textContent = "Not enough data";
         aiSpan.style.background = "#e5e7eb";
         aiSpan.style.color = "#222";
       } else {
@@ -209,22 +192,6 @@ function addMoreInfoHandler(job, aiAnalysis) {
   const btn = document.querySelector(`#job-${key} .more-info-btn`);
   if (btn) {
     btn.onclick = () => showModal(job, aiAnalysis);
-  }
-}
-
-function addFavoriteHandler(job) {
-  const key = jobKey(job);
-  const btn = document.querySelector(`#job-${key} .fav-btn`);
-  if (btn) {
-    btn.onclick = () => {
-      if (favorites.includes(key)) {
-        favorites = favorites.filter(f => f !== key);
-      } else {
-        favorites.push(key);
-      }
-      localStorage.setItem("favorites", JSON.stringify(favorites));
-      renderFilteredJobs();
-    };
   }
 }
 
@@ -251,6 +218,30 @@ function showModal(job, aiAnalysis) {
   modal.style.display = "flex";
   document.getElementById("close-modal").onclick = () => { modal.style.display = "none"; };
   modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
+}
+
+// --- Chatbot Floating Button Logic ---
+const chatbotDock = document.getElementById("chatbot-dock");
+const chatbotSection = document.getElementById("chatbot-section");
+let chatbotOpen = false;
+
+function createChatbotButton() {
+  let btn = document.getElementById("chatbot-fab");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "chatbot-fab";
+    btn.className = "chatbot-fab";
+    btn.innerHTML = "🤖";
+    document.body.appendChild(btn);
+    btn.onclick = () => {
+      chatbotOpen = !chatbotOpen;
+      chatbotDock.style.display = chatbotOpen ? "block" : "none";
+    };
+  }
+}
+createChatbotButton();
+if (chatbotDock) {
+  chatbotDock.style.display = "none";
 }
 
 // --- Advanced Chatbot Logic ---
@@ -288,7 +279,7 @@ async function handleChatbotConversation(userMsg) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jobTitle: "Career Coach",
-          jobDescription: `User said: "${userMsg}". Continue the conversation as a career coach, ask clarifying questions if needed, and recommend jobs if ready.`,
+          jobDescription: `User said: "${userMsg}". Continue the conversation as a career coach, ask clarifying questions if needed, and recommend jobs if ready. If the user is unsure, suggest examples or ask about their hobbies or favorite school subjects.`,
           mode: "chatbot"
         })
       });
@@ -319,7 +310,7 @@ async function handleChatbotConversation(userMsg) {
     chatState.jobs = data.jobs ? data.jobs.slice(0, 10) : [];
     // Ask Grok for recommendations
     const jobTitles = chatState.jobs.map(j => j.title).join(", ");
-    const prompt = `User interests: ${chatState.interests}. Skills: ${chatState.skills}. Values: ${chatState.values}. Here are some jobs: ${jobTitles}. Which 3 jobs are the best fit for the user and why? If you need more info, ask the user a clarifying question. Respond as a friendly career coach.`;
+    const prompt = `User interests: ${chatState.interests}. Skills: ${chatState.skills}. Values: ${chatState.values}. Here are some jobs: ${jobTitles}. Which 3 jobs are the best fit for the user and why? If you need more info, ask the user a clarifying question. If the user is unsure, suggest examples or ask about their hobbies or favorite school subjects. Respond as a friendly career coach.`;
     appendChatbotMessage("bot", "Thinking...");
     try {
       const res = await fetch('/api/grok', {
