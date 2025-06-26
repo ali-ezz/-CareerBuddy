@@ -9,9 +9,20 @@ searchBtn.addEventListener("click", () => {
 });
 
 let allJobs = [];
+let favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+
+// --- Advanced Chatbot State ---
+let chatState = {
+  step: 0,
+  interests: "",
+  skills: "",
+  values: "",
+  jobs: [],
+  lastBotMsg: ""
+};
 
 async function fetchJobsAndScore(keyword) {
-  jobContainer.innerHTML = "<p>Loading jobs...</p>";
+  showJobSkeletons();
   try {
     const jobRes = await fetch(`/api/jobFetcher?keyword=${encodeURIComponent(keyword)}`);
     const data = await jobRes.json();
@@ -25,6 +36,7 @@ async function fetchJobsAndScore(keyword) {
       return;
     }
     populateLocationFilter(allJobs);
+    populateTypeFilter(allJobs);
     renderFilteredJobs();
     // Fetch AI scores in parallel
     await Promise.all(allJobs.map(async (job) => {
@@ -55,21 +67,54 @@ async function fetchJobsAndScore(keyword) {
   }
 }
 
+function showJobSkeletons() {
+  jobContainer.innerHTML = "";
+  for (let i = 0; i < 6; i++) {
+    const div = document.createElement("div");
+    div.className = "job-card skeleton";
+    div.innerHTML = `
+      <div class="job-header"><div class="skeleton-box" style="width: 60%; height: 1.5rem;"></div></div>
+      <div class="skeleton-box" style="width: 40%; height: 1.1rem; margin-bottom:0.7rem"></div>
+      <div class="skeleton-box" style="width: 30%; height: 1.1rem; margin-bottom:0.7rem"></div>
+      <div class="skeleton-box" style="width: 50%; height: 1.1rem;"></div>
+    `;
+    jobContainer.appendChild(div);
+  }
+}
+
 function populateLocationFilter(jobs) {
   const filter = document.getElementById("location-filter");
   const locations = Array.from(new Set(jobs.map(j => j.candidate_required_location).filter(Boolean)));
   filter.innerHTML = `<option value="">All Locations</option>` + locations.map(loc => `<option value="${loc}">${loc}</option>`).join("");
 }
 
+function populateTypeFilter(jobs) {
+  let filter = document.getElementById("type-filter");
+  if (!filter) {
+    filter = document.createElement("select");
+    filter.id = "type-filter";
+    filter.innerHTML = `<option value="">All Types</option>`;
+    document.querySelector(".search-section").appendChild(filter);
+    filter.addEventListener("change", renderFilteredJobs);
+  }
+  const types = Array.from(new Set(jobs.map(j => j.job_type).filter(Boolean)));
+  filter.innerHTML = `<option value="">All Types</option>` + types.map(type => `<option value="${type}">${type}</option>`).join("");
+}
+
 document.getElementById("location-filter").addEventListener("change", renderFilteredJobs);
 
 function renderFilteredJobs() {
-  const filter = document.getElementById("location-filter");
-  const selected = filter.value;
+  const locFilter = document.getElementById("location-filter");
+  const typeFilter = document.getElementById("type-filter");
+  const selectedLoc = locFilter.value;
+  const selectedType = typeFilter ? typeFilter.value : "";
   jobContainer.innerHTML = "";
   let jobsToShow = allJobs;
-  if (selected) {
-    jobsToShow = allJobs.filter(j => j.candidate_required_location === selected);
+  if (selectedLoc) {
+    jobsToShow = jobsToShow.filter(j => j.candidate_required_location === selectedLoc);
+  }
+  if (selectedType) {
+    jobsToShow = jobsToShow.filter(j => j.job_type === selectedType);
   }
   for (const job of jobsToShow) {
     renderJob(job, "Loading AI safety...");
@@ -83,6 +128,7 @@ function jobKey(job) {
 
 function renderJob(job, aiAnalysis) {
   const key = jobKey(job);
+  const isFav = favorites.includes(key);
   const div = document.createElement("div");
   div.className = "job-card";
   div.id = `job-${key}`;
@@ -90,14 +136,17 @@ function renderJob(job, aiAnalysis) {
     <div class="job-header">
       <h3>${job.title}</h3>
       <button class="more-info-btn" data-jobkey="${key}">More Info</button>
+      <button class="fav-btn" title="Save job" data-jobkey="${key}" aria-label="Save job">${isFav ? "★" : "☆"}</button>
     </div>
     <p><strong>Company:</strong> ${job.company_name}</p>
     <p><strong>Location:</strong> ${job.candidate_required_location}</p>
+    <p><strong>Type:</strong> ${job.job_type || "N/A"}</p>
     <p><strong>AI Safety:</strong> <span class="ai-analysis">${aiAnalysis}</span></p>
     <a href="${job.url}" target="_blank" class="job-link">View Job</a>
   `;
   jobContainer.appendChild(div);
   addMoreInfoHandler(job, aiAnalysis);
+  addFavoriteHandler(job);
 }
 
 function updateJobAI(job, aiAnalysis) {
@@ -135,6 +184,22 @@ function addMoreInfoHandler(job, aiAnalysis) {
   }
 }
 
+function addFavoriteHandler(job) {
+  const key = jobKey(job);
+  const btn = document.querySelector(`#job-${key} .fav-btn`);
+  if (btn) {
+    btn.onclick = () => {
+      if (favorites.includes(key)) {
+        favorites = favorites.filter(f => f !== key);
+      } else {
+        favorites.push(key);
+      }
+      localStorage.setItem("favorites", JSON.stringify(favorites));
+      renderFilteredJobs();
+    };
+  }
+}
+
 function showModal(job, aiAnalysis) {
   let modal = document.getElementById("job-modal");
   if (!modal) {
@@ -149,6 +214,7 @@ function showModal(job, aiAnalysis) {
       <h2>${job.title}</h2>
       <p><strong>Company:</strong> ${job.company_name}</p>
       <p><strong>Location:</strong> ${job.candidate_required_location}</p>
+      <p><strong>Type:</strong> ${job.job_type || "N/A"}</p>
       <p><strong>Description:</strong> ${job.description || "No description."}</p>
       <p><strong>AI Safety:</strong> ${aiAnalysis}</p>
       <a href="${job.url}" target="_blank" class="job-link">View Job</a>
@@ -159,7 +225,7 @@ function showModal(job, aiAnalysis) {
   modal.onclick = (e) => { if (e.target === modal) modal.style.display = "none"; };
 }
 
-// Chatbot UI logic
+// --- Advanced Chatbot Logic ---
 const chatbotForm = document.getElementById("chatbot-form");
 const chatbotInput = document.getElementById("chatbot-input");
 const chatbotMessages = document.getElementById("chatbot-messages");
@@ -171,29 +237,7 @@ if (chatbotForm && chatbotInput && chatbotMessages) {
     if (!userMsg) return;
     appendChatbotMessage("user", userMsg);
     chatbotInput.value = "";
-    appendChatbotMessage("bot", "Thinking...");
-    // Integrate Grok API for real advice
-    try {
-      const res = await fetch('/api/grok', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobTitle: "Career Advice",
-          jobDescription: userMsg,
-          mode: "chatbot"
-        })
-      });
-      const data = await res.json();
-      if (data.analysis) {
-        chatbotMessages.lastChild.textContent = data.analysis;
-      } else if (data.error) {
-        chatbotMessages.lastChild.textContent = "AI error: " + data.error;
-      } else {
-        chatbotMessages.lastChild.textContent = "AI error: " + JSON.stringify(data);
-      }
-    } catch (err) {
-      chatbotMessages.lastChild.textContent = "AI error: " + err.message;
-    }
+    await handleChatbotConversation(userMsg);
   });
 }
 
@@ -203,4 +247,47 @@ function appendChatbotMessage(sender, text) {
   div.textContent = text;
   chatbotMessages.appendChild(div);
   chatbotMessages.scrollTop = chatbotMessages.scrollHeight;
+}
+
+async function handleChatbotConversation(userMsg) {
+  // Conversation flow: interests -> skills -> values -> recommend jobs
+  if (chatState.step === 0) {
+    chatState.interests = userMsg;
+    chatState.step = 1;
+    appendChatbotMessage("bot", "Great! What are your top 2-3 skills?");
+  } else if (chatState.step === 1) {
+    chatState.skills = userMsg;
+    chatState.step = 2;
+    appendChatbotMessage("bot", "What do you value most in a job? (e.g., salary, flexibility, impact, learning)");
+  } else if (chatState.step === 2) {
+    chatState.values = userMsg;
+    chatState.step = 3;
+    appendChatbotMessage("bot", "Thanks! Let me find jobs that match your profile...");
+    // Fetch jobs from API using interests as keyword
+    const jobRes = await fetch(`/api/jobFetcher?keyword=${encodeURIComponent(chatState.interests)}`);
+    const data = await jobRes.json();
+    chatState.jobs = data.jobs ? data.jobs.slice(0, 10) : [];
+    // Ask Grok for recommendations
+    const jobTitles = chatState.jobs.map(j => j.title).join(", ");
+    const prompt = `User interests: ${chatState.interests}. Skills: ${chatState.skills}. Values: ${chatState.values}. Here are some jobs: ${jobTitles}. Which 3 jobs are the best fit for the user and why? Respond as a friendly career coach.`;
+    appendChatbotMessage("bot", "Thinking...");
+    try {
+      const res = await fetch('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: "Career Coach",
+          jobDescription: prompt,
+          mode: "chatbot"
+        })
+      });
+      const data = await res.json();
+      chatbotMessages.lastChild.textContent = data.analysis || "Sorry, I couldn't find a match.";
+    } catch (err) {
+      chatbotMessages.lastChild.textContent = "AI error: " + err.message;
+    }
+    chatState.step = 4;
+  } else {
+    appendChatbotMessage("bot", "If you'd like more recommendations, please refresh or start a new chat.");
+  }
 }
