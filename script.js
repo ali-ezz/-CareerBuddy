@@ -320,7 +320,7 @@ this.aiAssistant.initAIIntegration();
       return;
     }
 
-    container.innerHTML = jobsToShow.map(job => this.createJobCard(job)).join('');
+    container.innerHTML = jobsToShow.map(job => `<div class="job-container">${this.createJobCard(job)}</div>`).join('');
     this.attachJobEventListeners();
     this.updateLoadMoreButton();
   }
