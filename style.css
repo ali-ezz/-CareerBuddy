@@ -436,14 +436,31 @@ body {
 
 /* Jobs Container */
 .jobs-container {
-  display: block;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.job-container {
+  flex: 1 1 350px;
+  max-width: 400px;
+  min-width: 300px;
+  margin-bottom: 20px;
+  display: flex;
 }
 .job-card {
-  margin-bottom: 20px;
+  width: 100%;
+  margin-bottom: 0;
 }
 
 .jobs-container.list-view {
-  grid-template-columns: 1fr;
+  flex-direction: column;
+  gap: 0;
+}
+.jobs-container.list-view .job-container {
+  max-width: 100%;
+  min-width: 0;
+  margin-bottom: 20px;
 }
 
 .job-card {
