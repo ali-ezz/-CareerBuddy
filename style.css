@@ -455,8 +455,8 @@ body {
   transition: var(--transition);
   height: auto; /* Dynamic height based on content */
   overflow: hidden; /* Prevent content overflow */
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto; /* Organize content into rows */
   gap: 16px; /* Add spacing between sections */
 }
 
@@ -474,8 +474,8 @@ body {
   box-shadow: var(--shadow-md);
   width: 100%;
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto; /* Organize content into rows */
   gap: 16px; /* Add spacing between sections */
 }
 
@@ -515,9 +515,9 @@ body {
 .job-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-  gap: 16px;
+  align-items: center; /* Center-align header content */
+  margin-bottom: 12px; /* Reduce margin for compact layout */
+  gap: 12px; /* Adjust gap for better alignment */
 }
 
 .job-title {
@@ -535,10 +535,10 @@ body {
 }
 
 .job-meta {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Optimize layout for multiple items */
+  gap: 12px; /* Adjust gap for compact spacing */
+  margin-bottom: 12px; /* Reduce margin for compact layout */
 }
 
 .job-meta-item {
@@ -579,12 +579,9 @@ body {
 .job-description {
   font-size: 14px;
   color: var(--neutral-600);
-  line-height: 1.5;
-  margin-bottom: 16px;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.6; /* Improve readability */
+  margin-bottom: 12px; /* Reduce margin for compact layout */
+  display: block; /* Ensure full visibility in list view */
 }
 
 .job-footer {
