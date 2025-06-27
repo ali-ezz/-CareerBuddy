@@ -436,10 +436,10 @@ body {
 
 /* Jobs Container */
 .jobs-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
-  align-items: start;
+  display: block;
+}
+.job-card {
+  margin-bottom: 20px;
 }
 
 .jobs-container.list-view {
