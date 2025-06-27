@@ -520,7 +520,7 @@ const maxRetries = 7;
 const retryDelay = 5000;
 
     try {
-      const response = await fetch('/api/grok', {
+      const response = await fetch('https://career-buddy-with-ai.vercel.app/api/grok', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
