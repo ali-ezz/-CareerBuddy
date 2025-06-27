@@ -59,6 +59,9 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
     }
   } catch (err) {
     console.error("Grok API error:", err);
+    console.error("Request body:", req.body);
+    console.error("GROK_API_KEY present:", !!process.env.GROK_API_KEY, "apiKey starts with:", apiKey ? apiKey.slice(0, 6) : "undefined");
+    console.error("Error stack:", err.stack);
     res.status(500).json({ error: "Grok API error", details: err.message });
   }
 }
