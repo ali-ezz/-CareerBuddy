@@ -439,6 +439,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 20px;
+  align-items: start;
 }
 .job-container {
   display: flex;
@@ -447,7 +448,6 @@ body {
 }
 .job-card {
   width: 100%;
-  max-width: 350px;
   padding: 16px;
   border: 1px solid var(--neutral-200);
   border-radius: var(--radius-lg);
