@@ -516,77 +516,82 @@ this.aiAssistant.initAIIntegration();
   }
 
   async fetchJobAIScore(job, retryCount = 0) {
-const maxRetries = 5;
-const retryDelay = 3000;
+  const maxRetries = 5;
+  const retryDelay = 3000;
 
-    try {
-      const response = await fetch('/api/grok', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobTitle: job.title,
-          jobDescription: job.description || job.title
-        })
-      });
+  try {
+    const response = await fetch('/api/grok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jobTitle: job.title,
+        jobDescription: job.description || job.title
+      })
+    });
 
-      if (!response.ok) {
-        // Try to parse Groq error for rate limit
-        let friendlyMessage = "Error fetching AI score.";
-        let isRateLimit = false;
-        try {
-          const errorData = await response.json();
-          if (
-            errorData?.error?.code === "rate_limit_exceeded" ||
-            (errorData?.details && errorData.details.includes("rate limit"))
-          ) {
-            friendlyMessage = "AI is busy right now (rate limit reached). Waiting and retrying...";
-            isRateLimit = true;
-          }
-        } catch (e) {}
-        if (isRateLimit && retryCount < maxRetries) {
-          this.showAIRateLimitReminder(friendlyMessage);
-          setTimeout(() => {
-            this.fetchJobAIScore(job, retryCount + 1);
-          }, retryDelay * (retryCount + 1));
-          return;
-        } else {
-          this.showAIRateLimitReminder(friendlyMessage);
-          throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      let friendlyMessage = "Error fetching AI score.";
+      let isRateLimit = false;
+
+      try {
+        const errorData = await response.json();
+        if (
+          errorData?.error?.code === "rate_limit_exceeded" ||
+          (errorData?.details && errorData.details.includes("rate limit"))
+        ) {
+          friendlyMessage = "AI is busy right now (rate limit reached). Waiting and retrying...";
+          isRateLimit = true;
         }
-      }
+      } catch (e) {}
 
-      const data = await response.json();
-      let score = null;
-
-      if (data.analysis) {
-        const scoreMatch = data.analysis.match(/(\d+)/);
-        if (scoreMatch) {
-          score = parseInt(scoreMatch[1]);
-          if (score > 100) score = score % 100;
-        }
-      }
-
-      if (score !== null && score >= 0 && score <= 100) {
-        job.aiScore = score;
-        this.updateJobAIScore(job.id, score);
-      } else {
-        job.aiScore = this.getFallbackAIScore(job);
-        this.updateJobAIScore(job.id, job.aiScore);
-      }
-
-    } catch (error) {
-      console.error('Error fetching AI score for job:', job.id, error);
-
-      if (retryCount < maxRetries) {
+      if (isRateLimit && retryCount < maxRetries) {
+        this.showAIRateLimitReminder(friendlyMessage);
         setTimeout(() => {
           this.fetchJobAIScore(job, retryCount + 1);
         }, retryDelay * (retryCount + 1));
+        return;
       } else {
-        job.aiScore = this.getFallbackAIScore(job);
-        this.updateJobAIScore(job.id, job.aiScore);
+        this.showAIRateLimitReminder(friendlyMessage);
+        throw new Error(`HTTP ${response.status}`);
       }
     }
+
+    const data = await response.json();
+    let score = null;
+
+    if (data.analysis) {
+      const scoreMatch = data.analysis.match(/(\d+)/);
+      if (scoreMatch) {
+        score = parseInt(scoreMatch[1]);
+        if (score > 100) score = score % 100;
+      }
+    }
+
+    if (score !== null && score >= 0 && score <= 100) {
+      job.aiScore = score;
+      this.updateJobAIScore(job.id, score);
+    } else {
+      job.aiScore = this.getFallbackAIScore(job);
+      this.updateJobAIScore(job.id, job.aiScore);
+    }
+
+  } catch (error) {
+    console.error('Error fetching AI score for job:', job.id, error);
+
+    if (retryCount < maxRetries) {
+      setTimeout(() => {
+        this.fetchJobAIScore(job, retryCount + 1);
+      }, retryDelay * (retryCount + 1));
+    } else {
+      job.aiScore = this.getFallbackAIScore(job);
+      this.updateJobAIScore(job.id, job.aiScore);
+    }
+  } finally {
+    if (retryCount === maxRetries) {
+      this.showAIRateLimitReminder("AI scoring failed after multiple retries. Please try again later.");
+    }
   }
+}
 
   showAIRateLimitReminder(message) {
     // Show a friendly reminder at the top of the page
@@ -1000,40 +1005,47 @@ class AIAssistant {
   }
 
   async getAIResponse(userMessage) {
-    try {
-      const prompt = this.buildChatPrompt(userMessage);
-      
-      const response = await fetch('/api/grok', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobTitle: "AI Career Coach Response",
-          jobDescription: prompt
-        })
-      });
-      
-      const data = await response.json();
-      
-      // Clean up the response to remove any meta-commentary
-      let aiResponse = data.analysis || "I'm not sure how to help with that. Could you tell me more about your career goals?";
-      
-      // Remove any text that talks about analyzing jobs or scoring
-      aiResponse = aiResponse.replace(/\*\*Risk Summary:\*\*.*$/s, '');
-      aiResponse = aiResponse.replace(/\*\*Risk Score:.*$/s, '');
-      aiResponse = aiResponse.replace(/The job requires.*$/s, '');
-      aiResponse = aiResponse.replace(/This.*job is at.*risk.*$/s, '');
+  try {
+    const prompt = this.buildChatPrompt(userMessage);
 
-      // If the response is just a number or a short number-like string, show a friendly fallback
-      if (/^\s*\d+\s*$/.test(aiResponse.trim())) {
-        aiResponse = "I'm here to help with your career questions. Could you tell me more about your goals, interests, or what you're looking for?";
-      }
-      
-      return aiResponse.trim() || "I'm here to help with your career questions. What would you like to know?";
-    } catch (error) {
-      console.error('AI Response Error:', error);
-      return "I'm having trouble connecting right now. Could you try asking your question again?";
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/grok`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.GROK_API_KEY}`
+      },
+      body: JSON.stringify({
+        jobTitle: "AI Career Coach Response",
+        jobDescription: prompt
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error: ${response.status}`);
     }
+
+    const data = await response.json();
+
+    // Clean up the response to remove any meta-commentary
+    let aiResponse = data.analysis || "I'm not sure how to help with that. Could you tell me more about your career goals?";
+    
+    // Remove any text that talks about analyzing jobs or scoring
+    aiResponse = aiResponse.replace(/\*\*Risk Summary:\*\*.*$/s, '');
+    aiResponse = aiResponse.replace(/\*\*Risk Score:.*$/s, '');
+    aiResponse = aiResponse.replace(/The job requires.*$/s, '');
+    aiResponse = aiResponse.replace(/This.*job is at.*risk.*$/s, '');
+
+    // If the response is just a number or a short number-like string, show a friendly fallback
+    if (/^\s*\d+\s*$/.test(aiResponse.trim())) {
+      aiResponse = "I'm here to help with your career questions. Could you tell me more about your goals, interests, or what you're looking for?";
+    }
+
+    return aiResponse.trim() || "I'm here to help with your career questions. What would you like to know?";
+  } catch (error) {
+    console.error('AI Response Error:', error);
+    return "I'm having trouble connecting right now. Could you try asking your question again?";
   }
+}
 
   buildChatPrompt(currentMessage) {
     const conversationHistory = this.conversation.slice(-6).map(msg => 
