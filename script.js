@@ -354,38 +354,22 @@ this.aiAssistant.initAIIntegration();
           </div>
         </div>
         
-        <div class="job-meta">
-          <div class="job-meta-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke="currentColor" stroke-width="2"/>
-              <circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${job.candidate_required_location || 'Remote'}
-          </div>
-          <div class="job-meta-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" stroke="currentColor" stroke-width="2"/>
-              <line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="2"/>
-              <line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${job.job_type || 'Full-time'}
-          </div>
-          <div class="job-meta-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2"/>
-              <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
-              <path d="m22 21-3-3m0 0a5 5 0 1 0-7-7 5 5 0 0 0 7 7z" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${job.experienceLevel}
-          </div>
-          <div class="job-meta-item publish-date">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-              <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="2"/>
-            </svg>
-            ${this.getTimeAgo(job.publication_date)}
-          </div>
-        </div>
+<div class="job-meta">
+  <div class="job-meta-item">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke="currentColor" stroke-width="2"/>
+      <circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2"/>
+    </svg>
+    ${job.candidate_required_location || 'Remote'}
+  </div>
+  <div class="job-meta-item publish-date">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+      <polyline points="12,6 12,12 16,14" stroke="currentColor" stroke-width="2"/>
+    </svg>
+    ${this.getTimeAgo(job.publication_date)}
+  </div>
+</div>
 
         ${job.skills.length > 0 ? `
 <div class="job-skills">
@@ -394,32 +378,18 @@ this.aiAssistant.initAIIntegration();
 </div>
         ` : ''}
         
-<div class="job-description">
-  ${job.description || 'No description available'}
-</div>
+<!-- Removed job description for concise card design -->
         
-        <div class="job-footer">
-<div class="job-salary">
-  ${job.salaryRange ? 
-    `$${this.formatSalary(job.salaryRange.min)} - $${this.formatSalary(job.salaryRange.max)}` : 
-    (job.salary ? job.salary : 'Salary information unavailable')}
+<div class="job-footer">
+  <div class="job-actions">
+    <button class="btn-secondary" onclick="careerPlatform.openJobModal('${job.id}')">
+      Details
+    </button>
+    <a href="${job.url}" target="_blank" class="btn-primary" onclick="careerPlatform.analytics.trackJobClick('${job.id}')">
+      Apply
+    </a>
+  </div>
 </div>
-          <div class="job-actions">
-            <button class="btn-secondary" onclick="careerPlatform.openJobModal('${job.id}')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/>
-                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-              </svg>
-              Details
-            </button>
-            <a href="${job.url}" target="_blank" class="btn-primary" onclick="careerPlatform.analytics.trackJobClick('${job.id}')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M7 17l9.2-9.2M17 17V7H7" stroke="currentColor" stroke-width="2"/>
-              </svg>
-              Apply
-            </a>
-          </div>
-        </div>
         
         ${relevanceScore > 50 ? `
           <div class="relevance-indicator">
