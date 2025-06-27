@@ -55,7 +55,7 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
     } else {
       const match = content.match(/\b([1-9]?[0-9]|100)\b/);
       const score = match ? match[0] : "N/A";
-      res.status(200).json({ analysis: score });
+      res.status(200).json({ analysis: score, explanation: content });
     }
   } catch (err) {
     console.error("Grok API error:", err);

@@ -566,6 +566,11 @@ setTimeout(() => {
       const data = await response.json();
       let score = null;
 
+      // Save explanation if present
+      if (data.explanation) {
+        job.aiExplanation = data.explanation;
+      }
+
       if (data.analysis) {
         const scoreMatch = data.analysis.match(/(\d+)/);
         if (scoreMatch) {
@@ -579,7 +584,7 @@ setTimeout(() => {
         this.updateJobAIScore(job.id, score);
       } else {
         job.aiScore = this.getFallbackAIScore(job);
-this.showError(`AI score could not be fetched for job: ${job.title}. Please try again later.`);
+        this.showError(`AI score could not be fetched for job: ${job.title}. Please try again later.`);
         this.updateJobAIScore(job.id, job.aiScore);
       }
 
@@ -697,6 +702,11 @@ this.showError(`AI score could not be fetched for job: ${job.title}. Please try 
     const aiScore = job.aiScore || 'Analyzing...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
     const relevanceScore = this.calculateRelevanceScore(job);
+    const aiExplanation = job.aiExplanation
+      ? `<div class="ai-explanation" style="margin: 18px 0 0 0; background: #f3f4f6; color: #222; border-radius: 8px; padding: 14px 18px; font-size: 1rem;">
+          <strong>Why this score?</strong><br>${job.aiExplanation}
+        </div>`
+      : '';
 
     modal.innerHTML = `
       <div class="modal-header" style="background: var(--accent, #e94560); color: #fff; border-radius: 12px 12px 0 0; padding: 24px 32px 16px 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.07);">
@@ -738,6 +748,7 @@ this.showError(`AI score could not be fetched for job: ${job.title}. Please try 
           <div class="description-content" style="line-height: 1.7; color: #222;">
             ${job.description || 'No description available'}
           </div>
+          ${aiExplanation}
         </div>
         <div class="modal-actions" style="display: flex; gap: 16px; margin-top: 16px;">
           <button class="btn-secondary" onclick="careerPlatform.askAIAboutJob('${job.id}')">
