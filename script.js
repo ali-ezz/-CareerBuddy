@@ -18,7 +18,6 @@ class CareerPlatform {
     };
     
     this.aiAssistant = new AIAssistant();
-this.aiAssistant.initAIIntegration();
     this.analytics = new PlatformAnalytics();
     this.init();
   }
@@ -1011,29 +1010,22 @@ class AIAssistant {
   async getAIResponse(userMessage) {
     try {
       const prompt = this.buildChatPrompt(userMessage);
-      
+
       const response = await fetch('/api/grok', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    jobTitle: job.title,
-    jobDescription: job.description || job.title,
-    mode: 'chatbot'
-  })
-});
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jobTitle: "AI Career Coach Response",
-          jobDescription: prompt
+          jobDescription: prompt,
+          mode: 'chatbot'
         })
       });
-      
+
       const data = await response.json();
-      
+
       // Clean up the response to remove any meta-commentary
       let aiResponse = data.analysis || "I'm not sure how to help with that. Could you tell me more about your career goals?";
-      
+
       // Remove any text that talks about analyzing jobs or scoring
       aiResponse = aiResponse.replace(/\*\*Risk Summary:\*\*.*$/s, '');
       aiResponse = aiResponse.replace(/\*\*Risk Score:.*$/s, '');
@@ -1044,7 +1036,7 @@ class AIAssistant {
       if (/^\s*\d+\s*$/.test(aiResponse.trim())) {
         aiResponse = "I'm here to help with your career questions. Could you tell me more about your goals, interests, or what you're looking for?";
       }
-      
+
       return aiResponse.trim() || "I'm here to help with your career questions. What would you like to know?";
     } catch (error) {
       console.error('AI Response Error:', error);
