@@ -454,9 +454,12 @@ body {
   box-shadow: var(--shadow-md);
   transition: var(--transition);
   height: auto;
-  min-height: 200px; /* Ensure consistent card height */
-  max-height: 350px; /* Prevent overly tall cards */
+  min-height: 250px; /* Increase minimum height for uniformity */
+  max-height: 400px; /* Allow slightly taller cards */
   overflow: hidden; /* Ensure content doesn't overflow */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Ensure buttons are accessible */
 }
 
 .jobs-container.list-view {
@@ -468,12 +471,15 @@ body {
   width: 100%;
 }
 .jobs-container.list-view .job-card {
-  padding: 40px; /* Enhance padding for better readability */
+  padding: 32px; /* Adjust padding for consistency */
   border: 1px solid var(--neutral-300);
   box-shadow: var(--shadow-md);
   width: 100%;
-  max-width: 1200px; /* Keep list items wide */
+  max-width: 1000px; /* Reduce width for better alignment */
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Ensure buttons are accessible */
 }
 
 .job-card {
