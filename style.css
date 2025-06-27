@@ -454,22 +454,24 @@ body {
   box-shadow: var(--shadow-sm);
   transition: var(--transition);
   height: auto;
+  max-height: 400px; /* Prevent overly tall cards */
+  overflow: hidden; /* Ensure content doesn't overflow */
 }
 
 .jobs-container.list-view {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px; /* Increase spacing between list items */
 }
 .jobs-container.list-view .job-container {
   width: 100%;
 }
 .jobs-container.list-view .job-card {
-  padding: 20px;
+  padding: 24px; /* Add more padding for better readability */
   border: 1px solid var(--neutral-300);
   box-shadow: var(--shadow-md);
   width: 100%;
-  max-width: 800px;
+  max-width: 900px; /* Make list items wider */
   margin: 0 auto;
 }
 
