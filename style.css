@@ -439,7 +439,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
 }
 .job-container {
   display: flex;
@@ -453,6 +453,7 @@ body {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   transition: var(--transition);
+  height: auto;
 }
 
 .jobs-container.list-view {
@@ -467,6 +468,9 @@ body {
   padding: 20px;
   border: 1px solid var(--neutral-300);
   box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
 }
 
 .job-card {
