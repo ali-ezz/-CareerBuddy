@@ -18,16 +18,7 @@ class CareerPlatform {
     };
     
     this.aiAssistant = new AIAssistant();
-fetch('./.env')
-  .then(response => response.text())
-  .then(envContent => {
-    const envVariables = envContent.split('\n').reduce((acc, line) => {
-      const [key, value] = line.split('=');
-      if (key && value) acc[key.trim()] = value.trim();
-      return acc;
-    }, {});
-    console.log('Environment Variables:', envVariables);
-  });
+this.aiAssistant.initAIIntegration();
     this.analytics = new PlatformAnalytics();
     this.init();
   }
