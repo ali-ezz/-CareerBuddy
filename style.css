@@ -437,30 +437,58 @@ body {
 /* Jobs Container */
 .jobs-container {
   display: flex;
-  flex-direction: row;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 24px;
+  align-items: stretch;
 }
 .job-container {
-  flex: 1 1 350px;
-  max-width: 400px;
-  min-width: 300px;
-  margin-bottom: 20px;
+  flex: 1 1 340px;
+  max-width: 340px;
+  min-width: 280px;
+  margin-bottom: 24px;
   display: flex;
+  align-items: stretch;
 }
 .job-card {
   width: 100%;
+  min-height: 100%;
   margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .jobs-container.list-view {
   flex-direction: column;
   gap: 0;
+  align-items: stretch;
 }
 .jobs-container.list-view .job-container {
   max-width: 100%;
   min-width: 0;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  display: flex;
+}
+.job-card {
+  padding: 24px;
+}
+.jobs-container.list-view .job-card {
+  flex-direction: row;
+  align-items: flex-start;
+  min-height: 120px;
+  padding: 24px 32px;
+  gap: 32px;
+}
+.jobs-container.list-view .job-header,
+.jobs-container.list-view .job-meta,
+.jobs-container.list-view .job-footer {
+  margin-bottom: 0;
+}
+.jobs-container.list-view .job-description {
+  display: block;
+  -webkit-line-clamp: 2;
+  max-width: 400px;
+  margin-right: 24px;
 }
 
 .job-card {
