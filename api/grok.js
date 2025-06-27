@@ -1,6 +1,9 @@
 import { Groq } from 'groq-sdk';
 
+console.log("api/grok.js loaded");
+
 export default async function handler(req, res) {
+  console.log("api/grok.js handler invoked", req.method, req.body);
   if (req.method !== "POST") return res.status(405).end();
   try {
     const { jobTitle, jobDescription, mode } = req.body;
