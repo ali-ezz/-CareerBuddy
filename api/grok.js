@@ -1,5 +1,3 @@
-// Load environment variables using envmint
-import 'envmint/register';
 import { Groq } from 'groq-sdk';
 
 export default async function handler(req, res) {
