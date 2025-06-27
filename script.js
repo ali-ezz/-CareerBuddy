@@ -527,12 +527,13 @@ console.log("Attempting to send request to Grok API with payload:", {
   jobTitle: job.title,
   jobDescription: job.description || job.title
 });
-const response = await fetch('https://career-buddy-with-ai.vercel.app/api/grok', {
+const response = await fetch('/api/grok', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jobTitle: job.title,
-          jobDescription: job.description || job.title
+          jobDescription: job.description || job.title,
+          mode: "risk"
         })
       });
 
