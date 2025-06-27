@@ -524,6 +524,10 @@ const retryDelay = 5000;
   jobTitle: job.title,
   jobDescription: job.description || job.title
 });
+console.log("Attempting to send request to Grok API with payload:", {
+  jobTitle: job.title,
+  jobDescription: job.description || job.title
+});
 const response = await fetch('https://career-buddy-with-ai.vercel.app/api/grok', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

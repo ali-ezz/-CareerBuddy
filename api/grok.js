@@ -23,19 +23,24 @@ export default async function handler(req, res) {
         max_tokens: 300,
         temperature: 0.2
       });
-    const grokRes = await fetch("https://career-buddy-with-ai.vercel.app/api/grok", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "meta-llama/llama-prompt-guard-2-86m",
-        messages,
-        max_tokens: 300,
-        temperature: 0.2
-      })
-    });
+    import { Groq } from 'groq-sdk';
+
+const groq = new Groq();
+
+const chatCompletion = await groq.chat.completions.create({
+  "messages": messages,
+  "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+  "temperature": 1,
+  "max_completion_tokens": 1024,
+  "top_p": 1,
+  "stream": true,
+  "stop": null
+});
+
+let content = '';
+for await (const chunk of chatCompletion) {
+  content += chunk.choices[0]?.delta?.content || '';
+}
 
     if (!grokRes.ok) {
       const errText = await grokRes.text();
