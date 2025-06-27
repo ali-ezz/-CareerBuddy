@@ -12,6 +12,17 @@ function getCareersByInterest(interest) {
     .slice(0, 5);
 }
 
+const fs = require('fs');
+const path = require('path');
+const envPath = path.resolve(__dirname, './.env');
+const envContent = fs.readFileSync(envPath, 'utf8');
+const envVariables = envContent.split('\n').reduce((acc, line) => {
+  const [key, value] = line.split('=');
+  if (key && value) acc[key.trim()] = value.trim();
+  return acc;
+}, {});
+console.log('Environment Variables:', envVariables);
+
 function aiScoreColor(score) {
   if (score <= 0.15) return "#10b981"; // green (safe)
   if (score <= 0.3) return "#f59e42";  // orange (medium)
