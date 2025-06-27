@@ -394,9 +394,9 @@ this.aiAssistant.initAIIntegration();
           </div>
         ` : ''}
         
-        <div class="job-description">
-          ${this.truncateText(job.description || 'No description available', 150)}
-        </div>
+<div class="job-description">
+  ${job.description || 'No description available'}
+</div>
         
         <div class="job-footer">
           <div class="job-salary">
