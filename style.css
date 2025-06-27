@@ -438,7 +438,7 @@ body {
 .jobs-container {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  gap: 32px;
+  gap: 40px; /* Increase spacing between job cards */
   align-items: stretch; /* Ensure cards align consistently */
 }
 .job-container {
@@ -461,17 +461,17 @@ body {
 .jobs-container.list-view {
   display: flex;
   flex-direction: column;
-  gap: 48px; /* Increase spacing between list items */
+  gap: 56px; /* Further increase spacing between list items */
 }
 .jobs-container.list-view .job-container {
   width: 100%;
 }
 .jobs-container.list-view .job-card {
-  padding: 36px; /* Add more padding for better readability */
+  padding: 40px; /* Enhance padding for better readability */
   border: 1px solid var(--neutral-300);
   box-shadow: var(--shadow-md);
   width: 100%;
-  max-width: 1200px; /* Make list items wider */
+  max-width: 1200px; /* Keep list items wide */
   margin: 0 auto;
 }
 
