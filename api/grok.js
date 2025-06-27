@@ -2,16 +2,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
   try {
     const { jobTitle, jobDescription, mode } = req.body;
-    const fs = require('fs');
-const path = require('path');
-const envPath = path.resolve(__dirname, '../../.env');
-const envContent = fs.readFileSync(envPath, 'utf8');
-const envVariables = envContent.split('\n').reduce((acc, line) => {
-  const [key, value] = line.split('=');
-  if (key && value) acc[key.trim()] = value.trim();
-  return acc;
-}, {});
-const apiKey = envVariables.GROK_API_KEY;
+    const apiKey = process.env.GROK_API_KEY;
 
     let messages;
     if (mode === "chatbot") {
