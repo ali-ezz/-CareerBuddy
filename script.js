@@ -703,8 +703,10 @@ setTimeout(() => {
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
     const relevanceScore = this.calculateRelevanceScore(job);
     const aiExplanation = job.aiExplanation
-      ? `<div class="ai-explanation" style="margin: 18px 0 0 0; background: #f3f4f6; color: #222; border-radius: 8px; padding: 14px 18px; font-size: 1rem;">
-          <strong>Why this score?</strong><br>${job.aiExplanation}
+      ? `<div class="ai-explanation">
+            <span class="ai-explanation-icon">💡</span>
+            <div class="ai-explanation-title">Why this score?</div>
+            <div class="ai-explanation-content">${job.aiExplanation}</div>
         </div>`
       : '';
 
@@ -1239,6 +1241,51 @@ document.addEventListener('keydown', (e) => {
 // Enhanced CSS for new features
 const enhancedStyles = `
 <style>
+/* AI Explanation Box Styles */
+.ai-explanation {
+  margin: 22px 0 0 0;
+  background: linear-gradient(90deg, #f3f4f6 70%, #ffe7d6 100%);
+  color: #222;
+  border-radius: 12px;
+  padding: 18px 22px 16px 22px;
+  font-size: 1.08rem;
+  box-shadow: 0 2px 12px rgba(245, 158, 66, 0.08);
+  border: 1.5px solid #ffe7d6;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  position: relative;
+  animation: fadeInUp 0.7s;
+}
+.ai-explanation-icon {
+  font-size: 1.7em;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.ai-explanation-title {
+  font-weight: 700;
+  color: #e94560;
+  font-size: 1.08em;
+  margin-bottom: 4px;
+  letter-spacing: 0.2px;
+}
+.ai-explanation-content {
+  font-size: 1em;
+  color: #333;
+  margin-top: 2px;
+  line-height: 1.6;
+}
+@media (max-width: 600px) {
+  .ai-explanation {
+    font-size: 0.98rem;
+    padding: 12px 10px 10px 10px;
+    border-radius: 8px;
+  }
+  .ai-explanation-icon {
+    font-size: 1.2em;
+  }
+}
+
 /* Enhanced Job Card Styles */
 .job-card {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
