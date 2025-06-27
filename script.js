@@ -388,10 +388,10 @@ this.aiAssistant.initAIIntegration();
         </div>
 
         ${job.skills.length > 0 ? `
-          <div class="job-skills">
-            ${job.skills.slice(0, 4).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
-            ${job.skills.length > 4 ? `<span class="skill-more">+${job.skills.length - 4}</span>` : ''}
-          </div>
+<div class="job-skills">
+  ${job.skills && job.skills.length > 0 ? job.skills.slice(0, 4).map(skill => `<span class="skill-tag">${skill}</span>`).join('') : '<span class="skill-tag">No skills listed</span>'}
+  ${job.skills && job.skills.length > 4 ? `<span class="skill-more">+${job.skills.length - 4}</span>` : ''}
+</div>
         ` : ''}
         
 <div class="job-description">
@@ -399,12 +399,11 @@ this.aiAssistant.initAIIntegration();
 </div>
         
         <div class="job-footer">
-          <div class="job-salary">
-            ${job.salaryRange ? 
-              `$${this.formatSalary(job.salaryRange.min)} - $${this.formatSalary(job.salaryRange.max)}` : 
-              job.salary || 'Salary not specified'
-            }
-          </div>
+<div class="job-salary">
+  ${job.salaryRange ? 
+    `$${this.formatSalary(job.salaryRange.min)} - $${this.formatSalary(job.salaryRange.max)}` : 
+    (job.salary ? job.salary : 'Salary information unavailable')}
+</div>
           <div class="job-actions">
             <button class="btn-secondary" onclick="careerPlatform.openJobModal('${job.id}')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
