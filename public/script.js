@@ -1013,6 +1013,14 @@ class AIAssistant {
       const prompt = this.buildChatPrompt(userMessage);
       
       const response = await fetch('/api/grok', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    jobTitle: job.title,
+    jobDescription: job.description || job.title,
+    mode: 'chatbot'
+  })
+});
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

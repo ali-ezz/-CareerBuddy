@@ -1,4 +1,8 @@
-export default async function handler(req, res) {
+const express = require("express");
+const fetch = require("node-fetch");
+const router = express.Router();
+
+router.get("/", async (req, res) => {
   try {
     const keyword = req.query.keyword || "software";
     const jobRes = await fetch(`https://remotive.com/api/remote-jobs?search=${encodeURIComponent(keyword)}&limit=20`);
@@ -8,4 +12,6 @@ export default async function handler(req, res) {
     console.error("Remotive API error:", err);
     res.status(500).json({ error: "Remotive API error", details: err.message });
   }
-}
+});
+
+module.exports = router;
