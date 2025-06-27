@@ -516,77 +516,78 @@ this.aiAssistant.initAIIntegration();
   }
 
   async fetchJobAIScore(job, retryCount = 0) {
-const maxRetries = 5;
-const retryDelay = 3000;
+  const maxRetries = 5;
+  const retryDelay = 3000;
 
-    try {
-      const response = await fetch('/api/grok', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobTitle: job.title,
-          jobDescription: job.description || job.title
-        })
-      });
+  try {
+    const response = await fetch('/api/grok', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jobTitle: job.title,
+        jobDescription: job.description || job.title
+      })
+    });
 
-      if (!response.ok) {
-        // Try to parse Groq error for rate limit
-        let friendlyMessage = "Error fetching AI score.";
-        let isRateLimit = false;
-        try {
-          const errorData = await response.json();
-          if (
-            errorData?.error?.code === "rate_limit_exceeded" ||
-            (errorData?.details && errorData.details.includes("rate limit"))
-          ) {
-            friendlyMessage = "AI is busy right now (rate limit reached). Waiting and retrying...";
-            isRateLimit = true;
-          }
-        } catch (e) {}
-        if (isRateLimit && retryCount < maxRetries) {
-          this.showAIRateLimitReminder(friendlyMessage);
-          setTimeout(() => {
-            this.fetchJobAIScore(job, retryCount + 1);
-          }, retryDelay * (retryCount + 1));
-          return;
-        } else {
-          this.showAIRateLimitReminder(friendlyMessage);
-          throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      let friendlyMessage = "Error fetching AI score.";
+      let isRateLimit = false;
+
+      try {
+        const errorData = await response.json();
+        if (
+          errorData?.error?.code === "rate_limit_exceeded" ||
+          (errorData?.details && errorData.details.includes("rate limit"))
+        ) {
+          friendlyMessage = "AI is busy right now (rate limit reached). Waiting and retrying...";
+          isRateLimit = true;
         }
-      }
+      } catch (e) {}
 
-      const data = await response.json();
-      let score = null;
-
-      if (data.analysis) {
-        const scoreMatch = data.analysis.match(/(\d+)/);
-        if (scoreMatch) {
-          score = parseInt(scoreMatch[1]);
-          if (score > 100) score = score % 100;
-        }
-      }
-
-      if (score !== null && score >= 0 && score <= 100) {
-        job.aiScore = score;
-        this.updateJobAIScore(job.id, score);
-      } else {
-        job.aiScore = this.getFallbackAIScore(job);
-        this.updateJobAIScore(job.id, job.aiScore);
-      }
-
-    } catch (error) {
-      console.error('Error fetching AI score for job:', job.id, error);
-
-      if (retryCount < maxRetries) {
+      if (isRateLimit && retryCount < maxRetries) {
+        this.showAIRateLimitReminder(friendlyMessage);
         setTimeout(() => {
           this.fetchJobAIScore(job, retryCount + 1);
         }, retryDelay * (retryCount + 1));
+        return;
       } else {
-        job.aiScore = this.getFallbackAIScore(job);
-        this.updateJobAIScore(job.id, job.aiScore);
+        this.showAIRateLimitReminder(friendlyMessage);
+        throw new Error(`HTTP ${response.status}`);
       }
     }
+
+    const data = await response.json();
+    let score = null;
+
+    if (data.analysis) {
+      const scoreMatch = data.analysis.match(/(\d+)/);
+      if (scoreMatch) {
+        score = parseInt(scoreMatch[1]);
+        if (score > 100) score = score % 100;
+      }
+    }
+
+    if (score !== null && score >= 0 && score <= 100) {
+      job.aiScore = score;
+      this.updateJobAIScore(job.id, score);
+    } else {
+      job.aiScore = this.getFallbackAIScore(job);
+      this.updateJobAIScore(job.id, job.aiScore);
+    }
+
+  } catch (error) {
+    console.error('Error fetching AI score for job:', job.id, error);
+
+    if (retryCount < maxRetries) {
+      setTimeout(() => {
+        this.fetchJobAIScore(job, retryCount + 1);
+      }, retryDelay * (retryCount + 1));
+    } else {
+      job.aiScore = this.getFallbackAIScore(job);
+      this.updateJobAIScore(job.id, job.aiScore);
+    }
   }
+}
 
   showAIRateLimitReminder(message) {
     // Show a friendly reminder at the top of the page
