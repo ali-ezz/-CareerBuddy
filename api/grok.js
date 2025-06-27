@@ -23,7 +23,7 @@ export default async function handler(req, res) {
         max_tokens: 300,
         temperature: 0.2
       });
-    const grokRes = await fetch("https://api.groq.com/v1/chat/completions", {
+    const grokRes = await fetch("https://career-buddy-with-ai.vercel.app/api/grok", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
