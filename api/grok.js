@@ -27,6 +27,12 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
       ];
     }
 
+    console.log("Request payload:", {
+        model: "meta-llama/llama-prompt-guard-2-86m",
+        messages,
+        max_tokens: 300,
+        temperature: 0.2
+      });
     const grokRes = await fetch("https://api.groq.com/v1/chat/completions", {
       method: "POST",
       headers: {
