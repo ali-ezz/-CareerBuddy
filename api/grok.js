@@ -27,7 +27,7 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
       ];
     }
 
-    const grokRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const grokRes = await fetch("https://api.groq.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,

@@ -18,6 +18,7 @@ class CareerPlatform {
     };
     
     this.aiAssistant = new AIAssistant();
+this.aiAssistant.initAIIntegration();
     this.analytics = new PlatformAnalytics();
     this.init();
   }
@@ -530,8 +531,8 @@ class CareerPlatform {
   }
 
   async fetchJobAIScore(job, retryCount = 0) {
-    const maxRetries = 4;
-    const retryDelay = 4000;
+const maxRetries = 5;
+const retryDelay = 3000;
 
     try {
       const response = await fetch('/api/grok', {
@@ -917,6 +918,10 @@ class PlatformAnalytics {
 
 // AI Assistant Class (Enhanced)
 class AIAssistant {
+  initAIIntegration() {
+    console.log("AI integration initialized.");
+    // Add AI-specific functionality here
+  }
   constructor() {
     this.isOpen = false;
     this.conversation = [];
