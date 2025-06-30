@@ -13,40 +13,54 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "GROK_API_KEY is not set in environment variables." });
     }
 
+    // Truncate all user input to avoid context overflow
+    // Remove HTML tags and limit length even further for safety
+    function cleanText(str, maxLen) {
+      if (!str) return '';
+      // Remove HTML tags/entities
+      let txt = str.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ');
+      // Collapse whitespace
+      txt = txt.replace(/\s+/g, ' ').trim();
+      // Truncate
+      return txt.slice(0, maxLen);
+    }
+    const safeJobTitle = cleanText(jobTitle, 80);
+    const safeJobDescription = cleanText(jobDescription, 120);
+
     let messages;
     if (mode === "chatbot") {
       messages = [
         {
           role: "user",
-          content: `Career advice (max 2 sentences): ${jobDescription}`
+          content: `Career advice (max 2 sentences): ${safeJobDescription}`
         }
       ];
     } else if (mode === "autocomplete") {
       messages = [
         {
           role: "user",
-          content: `Suggest 5 trending job titles or skills (comma-separated): ${jobDescription}`
+          content: `Suggest 5 trending job titles or skills (comma-separated): ${safeJobDescription}`
         }
       ];
     } else if (mode === "course") {
       messages = [
         {
           role: "user",
-          content: `Best online course for: ${jobDescription}. Reply: Course: [Title] (URL), Provider: [Name], 1-sentence description. Or: No real course found.`
+          content: `Best online course for: ${safeJobDescription}. Reply: Course: [Title] (URL), Provider: [Name], 1-sentence description. Or: No real course found.`
         }
       ];
     } else if (mode === "company_score") {
       messages = [
         {
           role: "user",
-          content: `Company score (0-100) for: ${jobTitle}. Reason (1 sentence, specific):`
+          content: `Company score (0-100) for: ${safeJobTitle}. Reason (1 sentence, specific):`
         }
       ];
     } else {
       messages = [
         {
           role: "user",
-          content: `AI Safety (0-100) and Automatability (0-100%) for: ${jobTitle}. Main reason (1-2 sentences): ${jobDescription}`
+          content: `AI Safety (0-100) and Automatability (0-100%) for: ${safeJobTitle}. Main reason (1-2 sentences): ${safeJobDescription}`
         }
       ];
     }
