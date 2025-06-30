@@ -217,15 +217,44 @@ class CareerPlatform {
     return btoa(job.url || job.title + job.company_name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
   }
 
-  extractSkills(job) {
-    const text = `${job.title} ${job.description}`.toLowerCase();
-    const skillKeywords = [
-      'javascript', 'python', 'react', 'node.js', 'aws', 'docker', 'kubernetes',
-      'machine learning', 'data analysis', 'sql', 'mongodb', 'postgresql',
-      'figma', 'adobe', 'photoshop', 'sketch', 'git', 'jenkins', 'terraform'
-    ];
-    
-    return skillKeywords.filter(skill => text.includes(skill));
+  // AI/NLP-based skill extraction for more relevant skills
+  async extractSkills(job) {
+    // If skills are already present (from API), use them
+    if (job.skills && Array.isArray(job.skills) && job.skills.length > 0) {
+      return job.skills;
+    }
+    // Use Groq AI to extract skills from the job description
+    try {
+      const response = await fetch('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: job.title,
+          jobDescription: job.description,
+          mode: "extract_skills"
+        })
+      });
+      const data = await response.json();
+      // Expecting a comma-separated list or array of skills
+      let skills = [];
+      if (data && data.explanation) {
+        if (Array.isArray(data.explanation)) {
+          skills = data.explanation;
+        } else if (typeof data.explanation === "string") {
+          skills = data.explanation.split(',').map(s => s.trim()).filter(Boolean);
+        }
+      }
+      return skills;
+    } catch (e) {
+      // Fallback to keyword-based extraction if AI fails
+      const text = `${job.title} ${job.description}`.toLowerCase();
+      const skillKeywords = [
+        'javascript', 'python', 'react', 'node.js', 'aws', 'docker', 'kubernetes',
+        'machine learning', 'data analysis', 'sql', 'mongodb', 'postgresql',
+        'figma', 'adobe', 'photoshop', 'sketch', 'git', 'jenkins', 'terraform'
+      ];
+      return skillKeywords.filter(skill => text.includes(skill));
+    }
   }
 
   isRemoteJob(job) {
