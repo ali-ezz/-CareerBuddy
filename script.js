@@ -950,8 +950,26 @@ class CareerPlatform {
     // Prepare placeholders for company score and explanation
     let companyWhyHtml = `<div class="ai-explanation" id="company-why-score-section" style="margin-top:18px;"><span class="ai-explanation-icon">🏢</span><div class="ai-explanation-content" id="company-why-score-content"><em>Loading company score explanation...</em></div></div>`;
 
-    // Fetch company score asynchronously and update explanation section (always show, even if N/A)
-    if (job.company_name) {
+    // --- Company Score Caching and In-place Update ---
+    // Use a cache to avoid refetching and to prevent flicker
+    window._companyScoreCache = window._companyScoreCache || {};
+    const companyCacheKey = `companyScore_${job.company_name}`;
+    let companyScoreValue = '<em>Loading...</em>';
+    let companyScoreWhy = '<em>Loading company score explanation...</em>';
+
+    // Try cache first
+    if (window._companyScoreCache[companyCacheKey]) {
+      const cached = window._companyScoreCache[companyCacheKey];
+      companyScoreValue = cached.scoreHtml || companyScoreValue;
+      companyScoreWhy = cached.whyHtml || companyScoreWhy;
+      setTimeout(() => {
+        const scoreBox = document.getElementById('company-score-value');
+        if (scoreBox) scoreBox.innerHTML = companyScoreValue;
+        const whyBox = document.getElementById('company-why-score-content');
+        if (whyBox) whyBox.innerHTML = companyScoreWhy;
+      }, 0);
+    } else if (job.company_name) {
+      // Fetch company score asynchronously and update only the relevant sections
       setTimeout(async () => {
         try {
           const resp = await fetch('/api/grok', {
@@ -964,16 +982,31 @@ class CareerPlatform {
             })
           });
           const data = await resp.json();
+          let scoreHtml = '';
           let whyHtml = '';
           if (data && data.explanation) {
+            // Extract score for the top value
+            const scoreMatch = data.explanation.match(/Score:\s*(\d{1,3})\/100/i);
+            let scoreNum = scoreMatch ? scoreMatch[1] : '';
+            scoreHtml = scoreNum ? `${scoreNum}/100` : 'N/A';
             whyHtml = formatCompanyScore(data.explanation);
           } else {
+            scoreHtml = 'N/A';
             whyHtml = `<div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Company Score: N/A</div><div style="font-size:0.98em;color:#444;">No company score available.</div>`;
           }
-          // Update why section
+          // Cache for future modals
+          window._companyScoreCache[companyCacheKey] = {
+            scoreHtml,
+            whyHtml
+          };
+          // Update only the relevant DOM nodes, not the whole modal
+          const scoreBox = document.getElementById('company-score-value');
+          if (scoreBox) scoreBox.innerHTML = scoreHtml;
           const whyBox = document.getElementById('company-why-score-content');
           if (whyBox) whyBox.innerHTML = whyHtml;
         } catch (e) {
+          const scoreBox = document.getElementById('company-score-value');
+          if (scoreBox) scoreBox.innerHTML = 'N/A';
           const whyBox = document.getElementById('company-why-score-content');
           if (whyBox) whyBox.innerHTML = `<div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Company Score: N/A</div><div style="font-size:0.98em;color:#444;">No company score available.</div>`;
         }
