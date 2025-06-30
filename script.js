@@ -745,25 +745,34 @@ setTimeout(() => {
     // Format/clean AI explanation for "Why this score?"
     function formatAIExplanation(raw) {
       if (!raw) return '';
-      // Try to extract breakdown and summary
-      let summary = raw;
+      // Extract breakdowns like "70% automatable, 30% human oversight"
       let breakdown = '';
-      let score = '';
-      // Extract breakdown like "70% automatable, 30% human oversight"
-      const breakdownMatch = raw.match(/(\d{1,3}%\s*automatable[^.,;]*)/i);
+      let bullets = [];
+      let summary = '';
+      // Find breakdown
+      const breakdownMatch = raw.match(/(\d{1,3}%\s*automatable[^.,;\n]*)/i);
       if (breakdownMatch) breakdown = breakdownMatch[1];
-      // Extract score if present
-      const scoreMatch = raw.match(/(\d{1,3})\s*\/?\s*100/);
-      if (scoreMatch) score = scoreMatch[1];
-      // Remove redundant phrases
-      summary = summary.replace(/(AI disruption|AI automation|risk score|risk summary)[^.:]*[:.]/gi, '');
-      summary = summary.replace(/(\d{1,3}%\s*automatable[^.,;]*)/i, '');
-      summary = summary.replace(/(\d{1,3})\s*\/?\s*100/, '');
-      summary = summary.replace(/\s+/g, ' ').trim();
+      // Find all bullet-like or numbered reasons
+      const bulletMatches = raw.match(/(?:\d+\.\s*|\*\*?)([^\n*•]+?)(?=\n|$|\d+\.\s*|\*\*?)/g);
+      if (bulletMatches && bulletMatches.length > 0) {
+        bullets = bulletMatches.map(b => b.replace(/^\d+\.\s*|\*\*?/g, '').trim()).filter(Boolean);
+      }
+      // If not, try to extract sentences with "requires", "demands", "necessary", "needed"
+      if (bullets.length === 0) {
+        const sentMatches = raw.match(/([^.?!]*?(requires|demands|necessary|needed)[^.?!]*[.?!])/gi);
+        if (sentMatches) bullets = sentMatches.map(s => s.trim());
+      }
+      // Fallback: take first 2-3 sentences
+      if (bullets.length === 0) {
+        bullets = raw.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
+      }
       // Compose
       return `
+        <div style="font-weight:700;color:#e94560;margin-bottom:6px;">Why this score?</div>
         ${breakdown ? `<div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>` : ''}
-        <div>${summary}</div>
+        <ul style="margin:0 0 0 18px;padding:0 0 0 0.5em;">
+          ${bullets.slice(0, 3).map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
+        </ul>
       `;
     }
 
@@ -773,21 +782,29 @@ setTimeout(() => {
       // Extract score and justification
       const match = raw.match(/^(\d{1,3})\D*(.*)$/s);
       let score = '';
-      let justification = '';
-      if (match) {
-        score = match[1];
-        justification = match[2] ? match[2].trim() : '';
+      let justification = match && match[2] ? match[2].trim() : '';
+      if (match) score = match[1];
+      // Try to extract up to 3 concise reasons
+      let bullets = [];
+      const bulletMatches = justification.match(/(?:\d+\.\s*|\*\*?)([^\n*•]+?)(?=\n|$|\d+\.\s*|\*\*?)/g);
+      if (bulletMatches && bulletMatches.length > 0) {
+        bullets = bulletMatches.map(b => b.replace(/^\d+\.\s*|\*\*?/g, '').trim()).filter(Boolean);
+      }
+      if (bullets.length === 0) {
+        bullets = justification.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
       }
       return `
+        <div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Why this company score?</div>
         <div style="font-weight:600;color:#0f3460;margin-bottom:4px;">🏢 Company Score: ${score ? score + '/100' : ''}</div>
-        <div>${justification}</div>
+        <ul style="margin:0 0 0 18px;padding:0 0 0 0.5em;">
+          ${bullets.slice(0, 3).map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
+        </ul>
       `;
     }
 
     const aiExplanation = job.aiExplanation
       ? `<div class="ai-explanation">
             <span class="ai-explanation-icon">💡</span>
-            <div class="ai-explanation-title">Why this score?</div>
             <div class="ai-explanation-content">${formatAIExplanation(job.aiExplanation)}</div>
         </div>`
       : '';
