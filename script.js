@@ -859,7 +859,7 @@ setTimeout(() => {
         if (ul) {
           ul.innerHTML = '';
           job.skills.forEach(async (skill) => {
-            // Fetch course link from Groq AI
+            // Fetch course info from Groq AI
             try {
               const resp = await fetch('/api/grok', {
                 method: 'POST',
@@ -871,36 +871,36 @@ setTimeout(() => {
                 })
               });
               const data = await resp.json();
-              let courseHtml = '';
-              if (data && data.explanation && data.explanation.includes('](')) {
-                // Markdown link format: [Course Title](URL)
-                const match = data.explanation.match(/\[([^\]]+)\]\(([^)]+)\)/);
-                if (match) {
-                  // Only show if link is from a known provider
-                  const url = match[2];
-                  if (/coursera|udemy|edx|linkedin|futurelearn|pluralsight|khanacademy|codecademy|skillshare|openai|mit\.edu|harvard\.edu|stanford\.edu/i.test(url)) {
-                    // Try to check if the link is valid (HEAD request)
-                    try {
-                      const headResp = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
-                      // If we get a response, assume it's valid (no-cors may not give status, so fallback to display)
-                      courseHtml = `<a href="${url}" target="_blank" rel="noopener">${match[1]}</a>`;
-                    } catch (err) {
-                      // If HEAD fails, don't show the link
-                      courseHtml = `<span style="color:#aaa;font-style:italic;">No good course found</span>`;
-                    }
-                  }
-                }
-              }
-              if (!courseHtml) {
-                // Show nothing or a friendly message for this skill
-                courseHtml = `<span style="color:#aaa;font-style:italic;">No good course found</span>`;
+              let courseText = '';
+              if (data && data.explanation && data.explanation.trim() && !data.explanation.includes('No real course found')) {
+                // Extract course title and provider from the explanation (ignore URL)
+                // Example format:
+                // [Course Title](URL)
+                // Provider: ProviderName
+                // Short Description: ...
+                let title = '';
+                let provider = '';
+                let desc = '';
+                // Extract title
+                const titleMatch = data.explanation.match(/\[([^\]]+)\]\([^)]+\)/);
+                if (titleMatch) title = titleMatch[1];
+                // Extract provider
+                const providerMatch = data.explanation.match(/Provider:\s*([^\n]+)/i);
+                if (providerMatch) provider = providerMatch[1];
+                // Extract description
+                const descMatch = data.explanation.match(/Short Description:\s*([^\n]+)/i);
+                if (descMatch) desc = descMatch[1];
+                // Compose plain text
+                courseText = `${title ? title : skill}${provider ? " (" + provider + ")" : ""}${desc ? ": " + desc : ""}`;
+              } else {
+                courseText = "No recommended course yet.";
               }
               const li = document.createElement('li');
-              li.innerHTML = `${skill}: ${courseHtml}`;
+              li.textContent = `${skill}: ${courseText}`;
               ul.appendChild(li);
             } catch (e) {
               const li = document.createElement('li');
-              li.innerHTML = `${skill}: <span style="color:#aaa;font-style:italic;">No good course found</span>`;
+              li.textContent = `${skill}: No recommended course yet.`;
               ul.appendChild(li);
             }
           });
