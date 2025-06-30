@@ -130,6 +130,17 @@ class CareerPlatform {
       dropdown.className = 'search-suggestions-dropdown';
       const container = document.querySelector('.search-container');
       if (container) container.appendChild(dropdown);
+
+      // Hide suggestions on blur
+      const input = document.getElementById('main-search');
+      if (input) {
+        input.addEventListener('blur', () => {
+          setTimeout(() => { dropdown.style.display = 'none'; }, 120);
+        });
+        input.addEventListener('focus', () => {
+          if (dropdown.innerHTML.trim() !== '') dropdown.style.display = 'block';
+        });
+      }
     }
     dropdown.innerHTML = '';
     if (!suggestions || suggestions.length === 0) {
@@ -731,18 +742,60 @@ setTimeout(() => {
     const aiScore = job.aiScore || 'Analyzing...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
     const relevanceScore = this.calculateRelevanceScore(job);
+    // Format/clean AI explanation for "Why this score?"
+    function formatAIExplanation(raw) {
+      if (!raw) return '';
+      // Try to extract breakdown and summary
+      let summary = raw;
+      let breakdown = '';
+      let score = '';
+      // Extract breakdown like "70% automatable, 30% human oversight"
+      const breakdownMatch = raw.match(/(\d{1,3}%\s*automatable[^.,;]*)/i);
+      if (breakdownMatch) breakdown = breakdownMatch[1];
+      // Extract score if present
+      const scoreMatch = raw.match(/(\d{1,3})\s*\/?\s*100/);
+      if (scoreMatch) score = scoreMatch[1];
+      // Remove redundant phrases
+      summary = summary.replace(/(AI disruption|AI automation|risk score|risk summary)[^.:]*[:.]/gi, '');
+      summary = summary.replace(/(\d{1,3}%\s*automatable[^.,;]*)/i, '');
+      summary = summary.replace(/(\d{1,3})\s*\/?\s*100/, '');
+      summary = summary.replace(/\s+/g, ' ').trim();
+      // Compose
+      return `
+        ${breakdown ? `<div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>` : ''}
+        <div>${summary}</div>
+      `;
+    }
+
+    // Format/clean company score explanation
+    function formatCompanyScore(raw) {
+      if (!raw) return '';
+      // Extract score and justification
+      const match = raw.match(/^(\d{1,3})\D*(.*)$/s);
+      let score = '';
+      let justification = '';
+      if (match) {
+        score = match[1];
+        justification = match[2] ? match[2].trim() : '';
+      }
+      return `
+        <div style="font-weight:600;color:#0f3460;margin-bottom:4px;">🏢 Company Score: ${score ? score + '/100' : ''}</div>
+        <div>${justification}</div>
+      `;
+    }
+
     const aiExplanation = job.aiExplanation
       ? `<div class="ai-explanation">
             <span class="ai-explanation-icon">💡</span>
             <div class="ai-explanation-title">Why this score?</div>
-            <div class="ai-explanation-content">${job.aiExplanation}</div>
+            <div class="ai-explanation-content">${formatAIExplanation(job.aiExplanation)}</div>
         </div>`
       : '';
 
     // Company success rate (AI-powered)
     let companyScoreHtml = '';
     if (job.company_name) {
-      companyScoreHtml = `<div class="company-score" id="company-score-box" style="margin-left:12px;display:inline-block;">Loading company score...</div>`;
+      companyScoreHtml = `<div class="company-score" id="company-score-box" style="margin-left:12px;display:inline-block;min-width:160px;">Loading company score...</div>`;
       // Fetch company score asynchronously after modal is shown
       setTimeout(async () => {
         const box = document.getElementById('company-score-box');
@@ -760,15 +813,7 @@ setTimeout(() => {
             const data = await resp.json();
             let scoreText = '';
             if (data && data.explanation) {
-              // Expecting: "87. Justification text..."
-              const match = data.explanation.match(/^(\d{1,3})\D*(.*)$/s);
-              if (match) {
-                const score = match[1];
-                const justification = match[2] ? match[2].trim() : '';
-                scoreText = `<span style="font-weight:bold;">🏢 ${score}/100</span>${justification ? `<span style="margin-left:8px;font-size:0.97em;color:#666;">${justification}</span>` : ''}`;
-              } else {
-                scoreText = data.explanation;
-              }
+              scoreText = formatCompanyScore(data.explanation);
             } else {
               scoreText = "N/A";
             }
