@@ -217,15 +217,38 @@ class CareerPlatform {
     return btoa(job.url || job.title + job.company_name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
   }
 
-  extractSkills(job) {
-    const text = `${job.title} ${job.description}`.toLowerCase();
-    const skillKeywords = [
-      'javascript', 'python', 'react', 'node.js', 'aws', 'docker', 'kubernetes',
-      'machine learning', 'data analysis', 'sql', 'mongodb', 'postgresql',
-      'figma', 'adobe', 'photoshop', 'sketch', 'git', 'jenkins', 'terraform'
-    ];
-    
-    return skillKeywords.filter(skill => text.includes(skill));
+  // Improved: Use AI to extract only truly relevant skills from the job description
+  async extractSkills(job) {
+    const text = `${job.title}\n${job.description || ""}`;
+    try {
+      const response = await fetch('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: job.title,
+          jobDescription: job.description,
+          mode: "autocomplete" // reuse autocomplete mode for skill extraction
+        })
+      });
+      const data = await response.json();
+      let skills = [];
+      if (data && data.explanation) {
+        // Only keep skills that are actually mentioned in the job description
+        skills = data.explanation
+          .split(',')
+          .map(s => s.trim().toLowerCase())
+          .filter(skill => skill && new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text));
+      }
+      return skills;
+    } catch (e) {
+      // Fallback to old keyword matching if AI fails
+      const skillKeywords = [
+        'javascript', 'python', 'react', 'node.js', 'aws', 'docker', 'kubernetes',
+        'machine learning', 'data analysis', 'sql', 'mongodb', 'postgresql',
+        'figma', 'adobe', 'photoshop', 'sketch', 'git', 'jenkins', 'terraform'
+      ];
+      return skillKeywords.filter(skill => text.toLowerCase().includes(skill));
+    }
   }
 
   isRemoteJob(job) {
