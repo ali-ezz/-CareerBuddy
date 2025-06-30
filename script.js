@@ -834,19 +834,40 @@ class CareerPlatform {
     // Always fetch both score and explanation together for modal, and update both top and "Why" section
     // --- FIX: Only update relevant DOM nodes, do not re-render modal to prevent flicker ---
     this.fetchJobAIScoreFull(job, true, 0, () => {
-      // Update only the AI score and explanation in-place
       setTimeout(() => {
+        // Extract automatability % from explanation
+        let automatability = null, humanPart = null;
+        if (job.aiExplanation) {
+          // Try to extract "XX% Automatable" and "YY% Requires Human Oversight"
+          const match = job.aiExplanation.match(/(\d{1,3})%\s*Automatable.*?(\d{1,3})%\s*(Requires Human|Human Oversight|Human)/i);
+          if (match) {
+            automatability = match[1];
+            humanPart = match[2];
+          } else {
+            const autoMatch = job.aiExplanation.match(/(\d{1,3})%\s*Automatable/i);
+            if (autoMatch) automatability = autoMatch[1];
+            const humanMatch = job.aiExplanation.match(/(\d{1,3})%\s*(Requires Human|Human Oversight|Human)/i);
+            if (humanMatch) humanPart = humanMatch[1];
+          }
+        }
         // Update AI score at the top
         const aiScoreClass = this.getAIScoreClass(job.aiScore);
         const aiScoreBox = document.querySelector('#job-modal .ai-score');
         if (aiScoreBox) {
           aiScoreBox.className = `ai-score ${aiScoreClass}`;
-          aiScoreBox.innerHTML = `<span class="score-icon">🤖</span> ${typeof job.aiScore === 'number' ? `${job.aiScore}% Safe from AI` : job.aiScore}`;
+          aiScoreBox.innerHTML = `<span class="score-icon">🤖</span> ${typeof job.aiScore === 'number' ? `${job.aiScore}% Safe from AI` : job.aiScore}
+            ${automatability !== null ? `<span style="margin-left:12px;font-size:0.98em;color:#e94560;">${automatability}% Automatable</span>` : ''}
+            ${humanPart !== null ? `<span style="margin-left:8px;font-size:0.98em;color:#0f3460;">${humanPart}% Human</span>` : ''}
+          `;
         }
         // Update "Why" section
         const whyBox = document.getElementById('job-why-score-content');
         if (whyBox && job.aiExplanation) {
           whyBox.innerHTML = formatAIExplanation(job.aiExplanation, job.aiScore);
+        }
+        // Debug: Show raw AI response in console
+        if (job.aiExplanation) {
+          console.log(`[AI DEBUG] Job: ${job.title} | AI Score: ${job.aiScore} | Explanation:`, job.aiExplanation);
         }
       }, 0);
     });
