@@ -212,84 +212,67 @@ body {
   margin-bottom: 48px;
 }
 
-/* Floating Google-style Search Bar */
 .search-container {
-  position: fixed;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 3000;
-  width: 100%;
-  max-width: 540px;
-  margin: 0 auto;
-  background: white;
-  border-radius: var(--radius-xl);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.13), 0 1.5px 8px rgba(102,126,234,0.08);
-  padding: 0 0 12px 0;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  transition: var(--transition);
-}
-
-@media (max-width: 600px) {
-  .search-container {
-    top: 16px;
-    max-width: 98vw;
-    border-radius: var(--radius-lg);
-    padding: 0 0 8px 0;
-  }
+  position: relative;
+  margin-bottom: 20px;
 }
 
 .search-container input {
   width: 100%;
-  padding: 18px 56px 18px 22px;
-  border: none;
-  border-radius: var(--radius-xl);
-  font-size: 18px;
-  background: transparent;
+  padding: 16px 24px 16px 20px;
+  border: 2px solid var(--neutral-200);
+  border-radius: var(--radius-lg);
+  font-size: 16px;
+  background: white;
   transition: var(--transition);
-  box-shadow: none;
-  font-weight: 500;
-  color: var(--neutral-900);
-  outline: none;
+  box-shadow: var(--shadow-sm);
 }
 
 .search-container input:focus {
-  background: var(--neutral-50);
-  border: none;
   outline: none;
-  box-shadow: none;
+  border-color: var(--secondary);
+  box-shadow: var(--shadow-md);
 }
 
 .search-btn {
   position: absolute;
-  right: 18px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
   background: var(--gradient-primary);
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius);
   padding: 12px;
   color: white;
   cursor: pointer;
   transition: var(--transition);
-  box-shadow: 0 2px 8px rgba(102,126,234,0.08);
-  font-size: 18px;
 }
 
 .search-btn:hover {
-  transform: translateY(-50%) scale(1.08);
-  background: var(--gradient-accent);
+  transform: translateY(-50%) scale(1.05);
 }
 
 .search-filters {
-  display: none; /* Hide filters for Google-style search bar */
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-/* Hide filter selects for floating search bar */
 .filter-select {
-  display: none;
+  padding: 12px 16px;
+  border: 1px solid var(--neutral-300);
+  border-radius: var(--radius);
+  background: white;
+  font-size: 14px;
+  color: var(--neutral-700);
+  cursor: pointer;
+  transition: var(--transition);
+  min-width: 140px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: var(--secondary);
 }
 
 .hero-stats {

@@ -802,45 +802,49 @@ setTimeout(() => {
       `;
     }
 
-    // Combined "Why this score?" section (job + company)
-    let combinedWhyScoreHtml = `<div class="ai-explanation" id="combined-why-score">
-      <span class="ai-explanation-icon">💡</span>
-      <div class="ai-explanation-content">
-        <div id="why-job-score">${job.aiExplanation ? formatAIExplanation(job.aiExplanation) : '<em>Loading job score...</em>'}</div>
-        <div id="why-company-score" style="margin-top:18px;">${
-          job.company_name
-            ? '<em>Loading company score...</em>'
-            : ''
-        }</div>
-      </div>
-    </div>`;
+    // Prepare placeholders for company score and explanation
+    let companyScoreValue = '<span id="company-score-value"><em>Loading...</em></span>';
+    let companyWhyHtml = `<div class="ai-explanation" id="company-why-score-section" style="margin-top:18px;"><span class="ai-explanation-icon">🏢</span><div class="ai-explanation-content" id="company-why-score-content"><em>Loading company score explanation...</em></div></div>`;
 
-    // Fetch company score asynchronously and update the combined section
+    // Fetch company score asynchronously and update both value and explanation
     if (job.company_name) {
       setTimeout(async () => {
-        const box = document.getElementById('why-company-score');
-        if (box) {
-          try {
-            const resp = await fetch('/api/grok', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jobTitle: job.company_name,
-                jobDescription: "",
-                mode: "company_score"
-              })
-            });
-            const data = await resp.json();
-            let scoreText = '';
-            if (data && data.explanation) {
-              scoreText = formatCompanyScore(data.explanation);
-            } else {
-              scoreText = "<em>N/A</em>";
-            }
-            box.innerHTML = scoreText;
-          } catch (e) {
-            box.innerHTML = "<em>N/A</em>";
+        // Fetch company score/explanation
+        try {
+          const resp = await fetch('/api/grok', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jobTitle: job.company_name,
+              jobDescription: "",
+              mode: "company_score"
+            })
+          });
+          const data = await resp.json();
+          let scoreText = '';
+          let whyHtml = '';
+          if (data && data.explanation) {
+            // Extract score for top display
+            const match = data.explanation.match(/^(\d{1,3})\D*(.*)$/s);
+            let score = '';
+            if (match) score = match[1];
+            scoreText = score ? `${score}/100` : "N/A";
+            whyHtml = formatCompanyScore(data.explanation);
+          } else {
+            scoreText = "N/A";
+            whyHtml = "<em>N/A</em>";
           }
+          // Update score at top
+          const scoreBox = document.getElementById('company-score-value');
+          if (scoreBox) scoreBox.innerHTML = scoreText;
+          // Update why section
+          const whyBox = document.getElementById('company-why-score-content');
+          if (whyBox) whyBox.innerHTML = whyHtml;
+        } catch (e) {
+          const scoreBox = document.getElementById('company-score-value');
+          if (scoreBox) scoreBox.innerHTML = "N/A";
+          const whyBox = document.getElementById('company-why-score-content');
+          if (whyBox) whyBox.innerHTML = "<em>N/A</em>";
         }
       }, 100);
     }
@@ -875,7 +879,15 @@ setTimeout(() => {
                   // Only show if link is from a known provider
                   const url = match[2];
                   if (/coursera|udemy|edx|linkedin|futurelearn|pluralsight|khanacademy|codecademy|skillshare|openai|mit\.edu|harvard\.edu|stanford\.edu/i.test(url)) {
-                    courseHtml = `<a href="${url}" target="_blank" rel="noopener">${match[1]}</a>`;
+                    // Try to check if the link is valid (HEAD request)
+                    try {
+                      const headResp = await fetch(url, { method: 'HEAD', mode: 'no-cors' });
+                      // If we get a response, assume it's valid (no-cors may not give status, so fallback to display)
+                      courseHtml = `<a href="${url}" target="_blank" rel="noopener">${match[1]}</a>`;
+                    } catch (err) {
+                      // If HEAD fails, don't show the link
+                      courseHtml = `<span style="color:#aaa;font-style:italic;">No good course found</span>`;
+                    }
                   }
                 }
               }
@@ -914,6 +926,9 @@ setTimeout(() => {
           <div class="ai-score ${aiScoreClass}" style="font-size: 1.1rem;">
             🤖 ${typeof aiScore === 'number' ? `${aiScore}% Safe from AI` : aiScore}
           </div>
+          <div class="company-score" style="font-size: 1.1rem; background: #f3f4f6; color: #0f3460; border-radius: 16px; padding: 8px 16px; font-weight: 600;">
+            🏢 <span id="company-score-value"><em>Loading...</em></span>
+          </div>
           ${relevanceScore > 50 ? `<div class="relevance-score" style="background: #f59e42; color: #fff; padding: 6px 14px; border-radius: 16px; font-weight: 600;">🎯 ${Math.round(relevanceScore)}% Match</div>` : ''}
         </div>
         <div class="modal-details" style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 32px; margin-bottom: 24px;">
@@ -937,7 +952,13 @@ setTimeout(() => {
           <div class="description-content" style="line-height: 1.7; color: #222;">
             ${job.description || 'No description available'}
           </div>
-          ${combinedWhyScoreHtml}
+          <div class="ai-explanation" id="job-why-score-section" style="margin-top:18px;">
+            <span class="ai-explanation-icon">💡</span>
+            <div class="ai-explanation-content" id="job-why-score-content">
+              ${job.aiExplanation ? formatAIExplanation(job.aiExplanation) : '<em>Loading job score...</em>'}
+            </div>
+          </div>
+          ${companyWhyHtml}
         </div>
         <div class="modal-actions" style="display: flex; gap: 16px; margin-top: 16px;">
           <button class="btn-secondary" onclick="careerPlatform.askAIAboutJob('${job.id}')">
