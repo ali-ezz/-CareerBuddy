@@ -199,7 +199,9 @@ class CareerPlatform {
       this.populateFilters();
       this.applyFilters();
       this.renderJobs();
+      // Only fetch AI Safety Scores for grid display here.
       this.fetchAIScores();
+      // Do NOT fetch company score or courses here; those will be lazy-loaded in openJobModal only.
       this.analytics.trackJobsFetched(this.jobs.length, keyword);
       
     } catch (error) {
