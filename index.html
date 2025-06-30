@@ -25,91 +25,25 @@
     </div>
   </nav>
 
-  <style>
-    .future-proof-badge {
-      display: inline-block;
-      background: linear-gradient(90deg, #ffe7d6 60%, #f3f4f6 100%);
-      color: #e94560;
-      font-weight: 700;
-      font-size: 1.1em;
-      padding: 4px 16px;
-      border-radius: 18px;
-      margin-bottom: 8px;
-      letter-spacing: 0.5px;
-      box-shadow: 0 2px 8px rgba(245,158,66,0.07);
-      margin-right: 6px;
-      vertical-align: middle;
-    }
-    .future-proof-highlight {
-      color: #e94560;
-      font-weight: 600;
-      font-size: 1.08em;
-      letter-spacing: 0.2px;
-    }
-    .future-proof-banner {
-      margin: 18px 0 0 0;
-      background: linear-gradient(90deg, #ffe7d6 70%, #f3f4f6 100%);
-      color: #222;
-      border-radius: 14px;
-      padding: 14px 22px;
-      font-size: 1.08rem;
-      box-shadow: 0 2px 12px rgba(245, 158, 66, 0.08);
-      border: 1.5px solid #ffe7d6;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      position: relative;
-      animation: fadeInUp 0.7s;
-    }
-    .future-proof-icon {
-      font-size: 1.7em;
-      margin-top: 2px;
-      flex-shrink: 0;
-    }
-    @media (max-width: 600px) {
-      .future-proof-banner {
-        font-size: 0.98rem;
-        padding: 10px 8px;
-        border-radius: 8px;
-      }
-      .future-proof-badge {
-        font-size: 1em;
-        padding: 3px 10px;
-      }
-      .future-proof-icon {
-        font-size: 1.2em;
-      }
-    }
-  </style>
   <main class="main-content">
     <section class="hero">
       <div class="hero-container">
         <div class="hero-content">
           <h1 class="hero-title">
-            <span class="future-proof-badge">Explore the Future of Work</span><br>
             Discover Your <span class="gradient-text">AI-Verified</span> Career Path
           </h1>
           <p class="hero-subtitle">
-            <span class="future-proof-highlight">Find Careers Resistant to AI Automation.</span><br>
-            Advanced AI analyzes thousands of jobs to help you choose a future-proof path.<br>
+            Advanced AI algorithms analyze thousands of jobs to find your perfect match. 
             Get real-time market insights, skill gap analysis, and personalized career guidance.
           </p>
-          <div class="future-proof-banner">
-            <span class="future-proof-icon">🛡️</span>
-            <span>
-              <strong>Future-Proof Your Career:</strong>
-              Explore jobs with high AI Safety Scores and discover roles where human skills matter most.
-            </span>
-          </div>
           <div class="hero-search">
-            <div class="search-container" style="position:relative;">
-              <input type="text" id="main-search" placeholder="Search by job title, skills, or interests..." autocomplete="off" />
+            <div class="search-container">
+              <input type="text" id="main-search" placeholder="Search by job title, skills, or interests..." />
               <button class="search-btn" id="main-search-btn">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                   <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
               </button>
-              <div id="search-suggestions" class="search-suggestions"></div>
             </div>
             <div class="search-filters">
               <select id="experience-filter" class="filter-select">
