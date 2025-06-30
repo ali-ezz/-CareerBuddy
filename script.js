@@ -557,30 +557,30 @@ class CareerPlatform {
     return text.substring(0, maxLength) + '...';
   }
 
+  // Fetch AI Safety Score for ALL jobs in the filtered list (not just first 15)
   async fetchAIScores() {
-    // Fetch AI Safety Score for ALL jobs in the filtered list (not just first 15)
     const batchSize = 3;
-    const jobs = this.filteredJobs; // fetch for all jobs in the grid
-
+    const jobs = this.filteredJobs;
     for (let i = 0; i < jobs.length; i += batchSize) {
       const batch = jobs.slice(i, i + batchSize);
-      await Promise.all(batch.map(job => this.fetchJobAIScoreOnlyScore(job)));
-      await new Promise(resolve => setTimeout(resolve, 800)); // Slightly faster, but still rate-limited
+      await Promise.all(batch.map(job => this.fetchJobAIScoreFull(job, false)));
+      await new Promise(resolve => setTimeout(resolve, 800));
     }
   }
 
-  // Fetch ONLY the AI Safety Score (number) for grid display and cache it
-  async fetchJobAIScoreOnlyScore(job, retryCount = 0) {
-    const cacheKey = `aiScoreOnly_${btoa(job.title + (job.description || "")).substring(0, 24)}`;
+  // Fetch BOTH the AI Safety Score (number) and explanation, and cache them together
+  // If forGrid is true, only update the score (for grid display); if false, update both score and explanation (for modal)
+  async fetchJobAIScoreFull(job, forModal = false, retryCount = 0, onDone) {
+    const cacheKey = `aiScoreFull_${btoa(job.title + (job.description || "")).substring(0, 24)}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (parsed && typeof parsed.score === "number") {
-          job.aiScore = parsed.score;
-          this.updateJobAIScore(job.id, job.aiScore);
-          return;
-        }
+        if (typeof parsed.score === "number") job.aiScore = parsed.score;
+        if (typeof parsed.explanation === "string") job.aiExplanation = parsed.explanation;
+        this.updateJobAIScore(job.id, job.aiScore);
+        if (forModal && typeof onDone === "function") setTimeout(onDone, 100);
+        return;
       } catch (e) {}
     }
 
@@ -588,14 +588,13 @@ class CareerPlatform {
     const retryDelay = 5000;
 
     try {
-      // Minimal payload for token savings
       const response = await fetch('/api/grok', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jobTitle: job.title,
           jobDescription: job.description || job.title,
-          mode: "risk_score_only"
+          mode: "risk_full"
         })
       });
 
@@ -612,7 +611,7 @@ class CareerPlatform {
         } catch (e) {}
         if (isRateLimit && retryCount < maxRetries) {
           setTimeout(() => {
-            this.fetchJobAIScoreOnlyScore(job, retryCount + 1);
+            this.fetchJobAIScoreFull(job, forModal, retryCount + 1, onDone);
           }, retryDelay * Math.pow(2, retryCount));
           return;
         } else {
@@ -622,101 +621,54 @@ class CareerPlatform {
 
       const data = await response.json();
       let score = null;
+      let explanation = null;
 
-      if (data.analysis) {
-        const scoreMatch = data.analysis.match(/(\d+)/);
+      // Try to extract score and explanation from API response
+      if (typeof data.analysis === "string") {
+        const scoreMatch = data.analysis.match(/(\d{1,3})/);
+        if (scoreMatch) {
+          score = parseInt(scoreMatch[1]);
+          if (score > 100) score = score % 100;
+        }
+      }
+      if (typeof data.explanation === "string") {
+        explanation = data.explanation;
+      }
+
+      // Fallback: try to extract score from explanation if not found above
+      if (score === null && explanation) {
+        const scoreMatch = explanation.match(/(\d{1,3})/);
         if (scoreMatch) {
           score = parseInt(scoreMatch[1]);
           if (score > 100) score = score % 100;
         }
       }
 
-      if (score !== null && score >= 0 && score <= 100) {
-        job.aiScore = score;
-        localStorage.setItem(cacheKey, JSON.stringify({ score }));
-        this.updateJobAIScore(job.id, score);
-      } else {
-        job.aiScore = this.getFallbackAIScore(job);
-        localStorage.setItem(cacheKey, JSON.stringify({ score: job.aiScore }));
-        this.updateJobAIScore(job.id, job.aiScore);
-      }
+      // Fallback: use fallback score/explanation if still missing
+      if (score === null) score = this.getFallbackAIScore(job);
+      if (!explanation) explanation = "No detailed AI analysis was available.";
+
+      job.aiScore = score;
+      job.aiExplanation = explanation;
+      localStorage.setItem(cacheKey, JSON.stringify({ score, explanation }));
+
+      this.updateJobAIScore(job.id, score);
+
+      if (forModal && typeof onDone === "function") setTimeout(onDone, 100);
 
     } catch (error) {
       if (retryCount < maxRetries) {
         setTimeout(() => {
-          this.fetchJobAIScoreOnlyScore(job, retryCount + 1);
+          this.fetchJobAIScoreFull(job, forModal, retryCount + 1, onDone);
         }, retryDelay * (retryCount + 1));
       } else {
         job.aiScore = this.getFallbackAIScore(job);
-        localStorage.setItem(cacheKey, JSON.stringify({ score: job.aiScore }));
-        this.updateJobAIScore(job.id, job.aiScore);
-      }
-    }
-  }
-
-  // Fetch the AI Safety Explanation ONLY when modal is opened, and cache it
-  async fetchJobAIScoreExplanation(job, retryCount = 0, onDone) {
-    const cacheKey = `aiScoreExpl_${btoa(job.title + (job.description || "")).substring(0, 24)}`;
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (parsed && typeof parsed.explanation === "string") {
-          job.aiExplanation = parsed.explanation;
-          if (typeof onDone === "function") setTimeout(onDone, 100);
-          return;
-        }
-      } catch (e) {}
-    }
-
-    const maxRetries = 7;
-    const retryDelay = 5000;
-
-    try {
-      const response = await fetch('/api/grok', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobTitle: job.title,
-          jobDescription: job.description || job.title,
-          mode: "risk_explanation_only"
-        })
-      });
-
-      if (!response.ok) {
-        let isRateLimit = false;
-        try {
-          const errorData = await response.json();
-          if (
-            errorData?.error?.code === "rate_limit_exceeded" ||
-            (errorData?.details && errorData.details.includes("rate limit"))
-          ) {
-            isRateLimit = true;
-          }
-        } catch (e) {}
-        if (isRateLimit && retryCount < maxRetries) {
-          setTimeout(() => {
-            this.fetchJobAIScoreExplanation(job, retryCount + 1, onDone);
-          }, retryDelay * Math.pow(2, retryCount));
-          return;
-        } else {
-          throw new Error(`HTTP ${response.status}`);
-        }
-      }
-
-      const data = await response.json();
-      if (data.explanation) {
-        job.aiExplanation = data.explanation;
-        localStorage.setItem(cacheKey, JSON.stringify({ explanation: job.aiExplanation }));
-      } else {
         job.aiExplanation = "No detailed AI analysis was available.";
-        localStorage.setItem(cacheKey, JSON.stringify({ explanation: job.aiExplanation }));
+        localStorage.setItem(cacheKey, JSON.stringify({ score: job.aiScore, explanation: job.aiExplanation }));
+        this.updateJobAIScore(job.id, job.aiScore);
+        if (forModal && typeof onDone === "function") setTimeout(onDone, 100);
       }
-    } catch (error) {
-      job.aiExplanation = "No detailed AI analysis was available.";
-      localStorage.setItem(cacheKey, JSON.stringify({ explanation: job.aiExplanation }));
     }
-    if (typeof onDone === "function") setTimeout(onDone, 100);
   }
 
   showAIRateLimitReminder(message) {
@@ -830,24 +782,17 @@ class CareerPlatform {
 
     const modal = document.getElementById('job-modal');
     const overlay = document.getElementById('job-modal-overlay');
-    
     if (!modal || !overlay) return;
 
-    // If AI score is missing, fetch it (score only, for grid)
-    if (typeof job.aiScore !== "number") {
-      this.fetchJobAIScoreOnlyScore(job, 0);
-    }
-    // If explanation is missing, fetch it only when modal is opened
-    if (!job.aiExplanation) {
-      this.fetchJobAIScoreExplanation(job, 0, () => {
-        setTimeout(() => {
-          // Re-render the modal completely to ensure all values update
-          if (document.getElementById('job-modal-overlay')?.classList.contains('open')) {
-            this.openJobModal(jobId);
-          }
-        }, 100);
-      });
-    }
+    // Always fetch both score and explanation together for modal, and update both top and "Why" section
+    this.fetchJobAIScoreFull(job, true, 0, () => {
+      setTimeout(() => {
+        // Re-render the modal completely to ensure all values update
+        if (document.getElementById('job-modal-overlay')?.classList.contains('open')) {
+          this.openJobModal(jobId);
+        }
+      }, 100);
+    });
 
     const aiScore = job.aiScore || 'Analyzing...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);

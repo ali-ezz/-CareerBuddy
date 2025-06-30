@@ -160,6 +160,31 @@ Top reasons:
         console.log("Using static fallback for company_score");
       }
       res.status(200).json({ analysis: score, explanation });
+    } else if (mode === "risk_full") {
+      // Always return both score and explanation, even if fallback
+      let score = "N/A";
+      let explanation = content;
+      // Try to extract score from "Score: XX" or "Score: XX/100"
+      let match = content.match(/Score:\s*(\d{1,3})/i);
+      if (match) {
+        score = match[1];
+      } else {
+        // Try to extract any number 0-100
+        match = content.match(/\b([1-9]?[0-9]|100)\b/);
+        if (match) score = match[0];
+      }
+      // Try to extract explanation after "Explanation:" or "Reason:"
+      let explanationMatch = content.match(/Explanation:\s*([\s\S]*)/i);
+      if (explanationMatch) {
+        explanation = explanationMatch[1].trim();
+      } else {
+        // If not, just use the whole content as explanation
+        explanation = content;
+      }
+      // Fallbacks
+      if (score === "N/A") score = "70";
+      if (!explanation || explanation.length < 10) explanation = "No detailed AI analysis was available.";
+      res.status(200).json({ analysis: score, explanation });
     } else {
       const match = content.match(/\b([1-9]?[0-9]|100)\b/);
       const score = match ? match[0] : "N/A";
