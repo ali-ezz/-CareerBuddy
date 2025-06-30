@@ -19,13 +19,7 @@ export default async function handler(req, res) {
         {
           role: "system",
           content: `
-You are a professional, friendly, and highly knowledgeable AI career coach. 
-- Always respond with specific, actionable, and encouraging advice about jobs, skills, and career growth.
-- If the user shares their interests or goals (e.g. "I want to be a pilot" or "I love programming"), suggest concrete next steps, learning paths, or career options.
-- Ask follow-up questions to help clarify their goals and provide tailored guidance.
-- Never respond with just a number or a generic fallback. Never mention risk scores or AI disruption unless asked directly.
-- If the user is unsure, help them explore their interests and strengths.
-- Be warm, supportive, and concise (max 120 words).
+You are a friendly, expert AI career coach. Give concise, actionable advice (max 3 sentences). Be supportive and specific.
           `.trim()
         },
         { role: "user", content: jobDescription }
@@ -45,20 +39,9 @@ You are an expert AI assistant for a job search platform. Given a partial search
         {
           role: "system",
           content: `
-You are an expert career advisor. Given a skill, search for a real, working online course for learning or improving that skill. Only use major providers (Coursera, edX, Udemy, LinkedIn, etc.) and check that the course is available and not just a landing page. Copy the actual course URL from the provider's catalog. Respond in this format:
-
-[Course Title](URL)  
-Provider: ProviderName  
-Short Description: (1-2 sentences about what the course covers)
-
-If you cannot find a real, working course, respond with: No real course found.
-
-For example, for "SQL" you might return:
-[Databases and SQL for Data Science with Python](https://www.coursera.org/learn/sql-data-science)  
-Provider: Coursera  
-Short Description: Learn SQL basics, querying, and data analysis using real-world datasets.
-
-Do not invent links. Do not use landing pages. Only copy real course URLs.
+Given a skill, reply with:
+Course: [Title] (URL), Provider: [Name], 1-sentence description.
+If no real course, reply: No real course found.
           `.trim()
         },
         { role: "user", content: jobDescription }
@@ -92,7 +75,11 @@ Why: 1-2 sentences, specific and concise. If human-centric, say why. If automata
       messages,
       model: "meta-llama/llama-prompt-guard-2-86m",
       temperature: 0.2,
-      max_completion_tokens: mode === "company_score" ? 80 : 120,
+      max_completion_tokens: 
+        mode === "company_score" ? 80 :
+        mode === "chatbot" ? 80 :
+        mode === "course" ? 60 :
+        120,
       top_p: 1,
       stream: false,
       stop: null
