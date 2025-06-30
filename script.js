@@ -567,19 +567,27 @@ class CareerPlatform {
   }
 
   async fetchJobAIScore(job, retryCount = 0) {
-const maxRetries = 7;
-const retryDelay = 5000;
+    // --- Frontend Caching for AI Safety Score ---
+    const cacheKey = `aiScore_${btoa(job.title + (job.description || "")).substring(0, 24)}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed.score === "number" && parsed.explanation) {
+          job.aiScore = parsed.score;
+          job.aiExplanation = parsed.explanation;
+          this.updateJobAIScore(job.id, job.aiScore);
+          return;
+        }
+      } catch (e) {}
+    }
+
+    const maxRetries = 7;
+    const retryDelay = 5000;
 
     try {
-      console.log("Sending request to Grok API:", {
-  jobTitle: job.title,
-  jobDescription: job.description || job.title
-});
-console.log("Attempting to send request to Grok API with payload:", {
-  jobTitle: job.title,
-  jobDescription: job.description || job.title
-});
-const response = await fetch('/api/grok', {
+      // Minimal payload for token savings
+      const response = await fetch('/api/grok', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -605,9 +613,9 @@ const response = await fetch('/api/grok', {
         } catch (e) {}
         if (isRateLimit && retryCount < maxRetries) {
           this.showAIRateLimitReminder(friendlyMessage);
-setTimeout(() => {
-  this.fetchJobAIScore(job, retryCount + 1);
-}, retryDelay * Math.pow(2, retryCount));
+          setTimeout(() => {
+            this.fetchJobAIScore(job, retryCount + 1);
+          }, retryDelay * Math.pow(2, retryCount));
           return;
         } else {
           this.showAIRateLimitReminder(friendlyMessage);
@@ -633,6 +641,8 @@ setTimeout(() => {
 
       if (score !== null && score >= 0 && score <= 100) {
         job.aiScore = score;
+        // --- Store in cache ---
+        localStorage.setItem(cacheKey, JSON.stringify({ score, explanation: job.aiExplanation }));
         this.updateJobAIScore(job.id, score);
       } else {
         job.aiScore = this.getFallbackAIScore(job);

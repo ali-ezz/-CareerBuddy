@@ -91,19 +91,26 @@ Top reasons:
         { role: "user", content: jobTitle }
       ];
     } else {
+      // --- Shorter prompt for grid risk score ---
       messages = [
         { role: "system", content: "You are an expert on the future of work and AI automation." },
-        { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond with a short risk summary, a percentage breakdown (e.g. '70% automatable, 30% human oversight'), and a score from 0 (very at risk) to 100 (very safe). Be concise and clear.` }
+        { role: "user", content: `Give a risk score (0-100) for this job's AI safety and a 1-sentence reason. Respond as: Score: XX. Reason: ... Job: ${jobTitle}. Description: ${jobDescription}` }
       ];
     }
 
     const groq = new Groq({ apiKey });
 
+    // --- Reduce token usage for all calls ---
+    let maxTokens = 100;
+    if (mode === "risk" || mode === "company_score") maxTokens = 60;
+    if (mode === "course") maxTokens = 80;
+    if (mode === "chatbot") maxTokens = 120;
+
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "llama-3.3-70b-versatile",
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
       temperature: 0.2,
-      max_completion_tokens: 300,
+      max_completion_tokens: maxTokens,
       top_p: 1,
       stream: false,
       stop: null
