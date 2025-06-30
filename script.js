@@ -577,10 +577,80 @@ class CareerPlatform {
           job.aiScore = parsed.score;
           job.aiExplanation = parsed.explanation;
           this.updateJobAIScore(job.id, job.aiScore);
+          // --- Update modal "Why" section if open for this job ---
+          this.updateJobModalWhySection(job);
           return;
         }
       } catch (e) {}
     }
+
+    // Helper: update modal "Why" section if open for this job
+    this.updateJobModalWhySection = function(job) {
+      const overlay = document.getElementById('job-modal-overlay');
+      const modal = document.getElementById('job-modal');
+      if (!overlay || !modal) return;
+      if (!overlay.classList.contains('open')) return;
+      // Check if the modal is showing this job
+      if (modal.innerHTML && modal.innerHTML.includes(job.title) && modal.innerHTML.includes(job.company_name)) {
+        // Update only the "Why" section
+        const whyBox = document.getElementById('job-why-score-content');
+        if (whyBox && job.aiExplanation) {
+          whyBox.innerHTML = (function formatAIExplanation(raw, aiScore) {
+            if (!raw) return '';
+            let cleaned = raw
+              .replace(/Job Analysis:.*$/gmi, '')
+              .replace(/Risk Summary:.*$/gmi, '')
+              .replace(/AI[- ]?Driven.*$/gmi, '')
+              .replace(/^\s*🏢.*$/gmi, '')
+              .replace(/^\s*Why this company score\?.*$/gmi, '')
+              .replace(/^\s*Company Score:.*$/gmi, '')
+              .replace(/^\s*Score:.*$/gmi, '')
+              .replace(/^\s*Top reasons:.*$/gmi, '')
+              .replace(/^\s*[-*]\s*$/gm, '')
+              .replace(/^\s*\*\*\s*$/gm, '')
+              .replace(/^\s*$/gm, '');
+            let aiScoreFromText = null;
+            const scoreTextMatch = cleaned.match(/score (it )?as (\d{1,3}) out of 100/i);
+            if (scoreTextMatch) {
+              aiScoreFromText = parseInt(scoreTextMatch[2]);
+              if (!isNaN(aiScoreFromText) && (typeof aiScore !== 'number' || aiScoreFromText > aiScore)) {
+                aiScore = aiScoreFromText;
+              }
+            }
+            let breakdown = '';
+            let bullets = [];
+            const breakdownMatch = cleaned.match(/(\d{1,3}%\s*automatable[^\n]*)/i);
+            if (breakdownMatch) breakdown = breakdownMatch[1].trim();
+            if (breakdown) cleaned = cleaned.replace(breakdown, '');
+            const bulletMatches = cleaned.match(/(?:^[-*•]\s*|^\d+\.\s*)([^\n*•-]+?)(?=\n|$)/gmi);
+            if (bulletMatches && bulletMatches.length > 0) {
+              bullets = bulletMatches.map(b => b.replace(/^[-*•]\s*|^\d+\.\s*/, '').trim()).filter(Boolean);
+            }
+            if (bullets.length === 0) {
+              const sentMatches = cleaned.match(/([^.?!]*?(requires|demands|necessary|needed)[^.?!]*[.?!])/gi);
+              if (sentMatches) bullets = sentMatches.map(s => s.trim());
+            }
+            if (bullets.length === 0) {
+              bullets = cleaned.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
+            }
+            bullets = bullets.slice(0, 2);
+            return `
+              <div style="font-weight:700;color:#e94560;margin-bottom:6px;">AI Safety Score: ${typeof aiScore === 'number' ? aiScore + '%' : ''}</div>
+              ${bullets.length > 0 ? `
+              <div style="font-weight:600;color:#222;margin-bottom:2px;">Why?</div>
+              <ul style="margin:0 0 12px 18px;padding:0 0 0 0.5em;">
+                ${bullets.map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
+              </ul>
+              ` : ''}
+              ${breakdown ? `
+              <div style="font-weight:700;color:#e94560;margin-bottom:4px;">Automatability</div>
+              <div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>
+              ` : ''}
+            `;
+          })(job.aiExplanation, job.aiScore);
+        }
+      }
+    };
 
     const maxRetries = 7;
     const retryDelay = 5000;
