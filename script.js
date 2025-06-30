@@ -803,15 +803,21 @@ class CareerPlatform {
     if (!modal || !overlay) return;
 
     // Always fetch both score and explanation together for modal, and update both top and "Why" section
-    // Instead of re-rendering the entire modal, update only the relevant sections when data arrives
+    this.fetchJobAIScoreFull(job, true, 0, () => {
+      setTimeout(() => {
+        // Re-render the modal completely to ensure all values update
+        if (document.getElementById('job-modal-overlay')?.classList.contains('open')) {
+          this.openJobModal(jobId);
+        }
+      }, 100);
+    });
 
-    // Helper for UTF-8 safe btoa
+    // Always use the latest cached values for both score and explanation
+    // FIX: Use a UTF-8 safe btoa for cache key to avoid InvalidCharacterError
     function utf8ToB64(str) {
       return btoa(unescape(encodeURIComponent(str)));
     }
     const cacheKey = `aiScoreFull_${utf8ToB64(job.title + (job.description || "")).substring(0, 24)}`;
-
-    // Render modal skeleton first (with loading states)
     let aiScore = job.aiScore || 'Analyzing...';
     let aiExplanation = job.aiExplanation;
     try {
@@ -822,193 +828,6 @@ class CareerPlatform {
         if (typeof parsed.explanation === "string") aiExplanation = parsed.explanation;
       }
     } catch (e) {}
-
-    // Render modal (skeleton or with available data)
-    // Only declare these variables ONCE at the top of openJobModal
-    var aiScoreClass = this.getAIScoreClass(aiScore);
-    var relevanceScore = this.calculateRelevanceScore(job);
-    var companyWhyHtml = `<div class="ai-explanation" id="company-why-score-section" style="margin-top:18px;"><span class="ai-explanation-icon">🏢</span><div class="ai-explanation-content" id="company-why-score-content"><em>Loading company score explanation...</em></div></div>`;
-
-    // Render modal HTML (same as before, but only once)
-    modal.innerHTML = `
-      <div class="modal-header" style="background: var(--accent, #e94560); color: #fff; border-radius: 12px 12px 0 0; padding: 24px 32px 16px 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.07);">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <div>
-            <h2 style="margin: 0 0 8px 0; font-size: 2rem; font-weight: 700;">${job.title}</h2>
-            <div style="font-size: 1.1rem; font-weight: 500;">
-              <span class="company-name" style="color: #fff;">${job.company_name}</span>
-              ${this.getCompanyRating(job.company_name)}
-            </div>
-          </div>
-          <button class="modal-close" onclick="careerPlatform.closeJobModal()" style="background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; margin-left: 24px;">×</button>
-        </div>
-      </div>
-      <div class="modal-content" style="padding: 32px; background: #fff; border-radius: 0 0 12px 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.08);">
-        <div class="modal-scores" style="display: flex; gap: 24px; align-items: center; margin-bottom: 24px;">
-          <div class="ai-score ${aiScoreClass}" style="font-size: 1.1rem;" id="modal-ai-score">
-            🤖 ${typeof aiScore === 'number' ? `${aiScore}% Safe from AI` : aiScore}
-          </div>
-          <div class="company-score" style="font-size: 1.1rem; background: #f3f4f6; color: #0f3460; border-radius: 16px; padding: 8px 16px; font-weight: 600;">
-            🏢 <span id="company-score-value"><em>Loading...</em></span>
-          </div>
-          ${relevanceScore > 50 ? `<div class="relevance-score" style="background: #f59e42; color: #fff; padding: 6px 14px; border-radius: 16px; font-weight: 600;">🎯 ${Math.round(relevanceScore)}% Match</div>` : ''}
-        </div>
-        <div class="modal-details" style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 32px; margin-bottom: 24px;">
-          <div><strong>Location:</strong> ${job.candidate_required_location || 'Remote'} ${job.isRemote ? '<span class="remote-badge" style="margin-left:8px;">🌍 Remote OK</span>' : ''}</div>
-          <div><strong>Type:</strong> ${job.job_type || 'Full-time'}</div>
-          <div><strong>Experience:</strong> ${job.experienceLevel}</div>
-          <div><strong>Salary:</strong> ${job.salaryRange ? `$${this.formatSalary(job.salaryRange.min)} - $${this.formatSalary(job.salaryRange.max)}` : job.salary || 'Not specified'}</div>
-          <div><strong>Published:</strong> ${this.formatDate(job.publication_date)}</div>
-        </div>
-        ${job.skills.length > 0 ? `
-          <div class="modal-skills" style="margin-bottom: 24px;">
-            <h4 style="margin-bottom: 10px; color: var(--accent, #e94560); font-size: 1.1rem;">Skills & Technologies</h4>
-            <div class="skills-grid" style="display: flex; flex-wrap: wrap; gap: 8px;">
-              ${job.skills.map(skill => `<span class="skill-tag" style="background: #f3f4f6; color: #222; padding: 6px 14px; border-radius: 14px; font-size: 0.98rem;">${skill}</span>`).join('')}
-            </div>
-            <!-- Skill links will be loaded async -->
-            <div id="modal-skill-courses"></div>
-          </div>
-        ` : ''}
-        <div class="modal-description" style="margin-bottom: 24px;">
-          <h3 style="margin-bottom: 10px; color: var(--accent, #e94560); font-size: 1.1rem;">Job Description</h3>
-          <div class="description-content" style="line-height: 1.7; color: #222;">
-            ${job.description || 'No description available'}
-          </div>
-          <div class="ai-explanation" id="job-why-score-section" style="margin-top:18px;">
-            <span class="ai-explanation-icon">💡</span>
-            <div class="ai-explanation-content" id="job-why-score-content">
-              ${aiExplanation ? formatAIExplanation(aiExplanation, aiScore) : '<em>Loading job score...</em>'}
-            </div>
-          </div>
-          ${companyWhyHtml}
-        </div>
-        <div class="modal-actions" style="display: flex; gap: 16px; margin-top: 16px;">
-          <button class="btn-secondary" onclick="careerPlatform.askAIAboutJob('${job.id}')">
-            🤖 Ask AI Coach
-          </button>
-          <a href="${job.url}" target="_blank" class="btn-primary" onclick="careerPlatform.analytics.trackJobClick('${job.id}')">
-            Apply Now →
-          </a>
-        </div>
-      </div>
-    `;
-
-    overlay.classList.add('open');
-    this.analytics.trackJobViewed(jobId);
-
-    // Fetch AI score/explanation and update only the relevant sections
-    this.fetchJobAIScoreFull(job, true, 0, () => {
-      // Update AI score and why section only
-      const cacheKey = `aiScoreFull_${utf8ToB64(job.title + (job.description || "")).substring(0, 24)}`;
-      let aiScore = job.aiScore || 'Analyzing...';
-      let aiExplanation = job.aiExplanation;
-      try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (typeof parsed.score === "number") aiScore = parsed.score;
-          if (typeof parsed.explanation === "string") aiExplanation = parsed.explanation;
-        }
-      } catch (e) {}
-      // Update top score
-      let aiScoreDiv = document.getElementById('modal-ai-score');
-      if (aiScoreDiv) {
-        aiScoreDiv.className = `ai-score ${this.getAIScoreClass(aiScore)}`;
-        aiScoreDiv.innerHTML = `🤖 ${typeof aiScore === 'number' ? `${aiScore}% Safe from AI` : aiScore}`;
-      }
-      // Update why section
-      let whyBox = document.getElementById('job-why-score-content');
-      if (whyBox) {
-        whyBox.innerHTML = aiExplanation ? formatAIExplanation(aiExplanation, aiScore) : '<em>Loading job score...</em>';
-      }
-    });
-
-    // Fetch company score asynchronously and update only the company section
-    if (job.company_name) {
-      setTimeout(async () => {
-        try {
-          const resp = await fetch('/api/grok', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jobTitle: job.company_name,
-              jobDescription: "",
-              mode: "company_score"
-            })
-          });
-          const data = await resp.json();
-          let whyHtml = '';
-          if (data && data.explanation) {
-            whyHtml = formatCompanyScore(data.explanation);
-            // Update top company score
-            const scoreMatch = data.explanation.match(/Score:\s*(\d{1,3})\/100/i);
-            const scoreValue = scoreMatch ? scoreMatch[1] : null;
-            const companyScoreSpan = document.getElementById('company-score-value');
-            if (companyScoreSpan) {
-              companyScoreSpan.innerHTML = scoreValue ? `${scoreValue}/100` : 'N/A';
-            }
-          } else {
-            whyHtml = `<div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Company Score: N/A</div><div style="font-size:0.98em;color:#444;">No company score available.</div>`;
-          }
-          // Update why section
-          const whyBox = document.getElementById('company-why-score-content');
-          if (whyBox) whyBox.innerHTML = whyHtml;
-        } catch (e) {
-          const whyBox = document.getElementById('company-why-score-content');
-          if (whyBox) whyBox.innerHTML = `<div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Company Score: N/A</div><div style="font-size:0.98em;color:#444;">No company score available.</div>`;
-        }
-      }, 100);
-    }
-
-    // Skill-to-course links (AI-powered)
-    if (job.skills && job.skills.length > 0) {
-      setTimeout(() => {
-        const ul = document.createElement('ul');
-        ul.id = 'skill-course-list';
-        job.skills.forEach(async (skill) => {
-          try {
-            const resp = await fetch('/api/grok', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jobTitle: "",
-                jobDescription: skill,
-                mode: "course"
-              })
-            });
-            const data = await resp.json();
-            let courseText = '';
-            if (data && data.explanation && data.explanation.trim() && !data.explanation.includes('No real course found')) {
-              let title = '';
-              let provider = '';
-              let desc = '';
-              const titleMatch = data.explanation.match(/\[([^\]]+)\]\([^)]+\)/);
-              if (titleMatch) title = titleMatch[1];
-              const providerMatch = data.explanation.match(/Provider:\s*([^\n]+)/i);
-              if (providerMatch) provider = providerMatch[1];
-              const descMatch = data.explanation.match(/Short Description:\s*([^\n]+)/i);
-              if (descMatch) desc = descMatch[1];
-              courseText = `${title ? title : skill}${provider ? " (" + provider + ")" : ""}${desc ? ": " + desc : ""}`;
-            } else {
-              courseText = "No recommended course yet.";
-            }
-            const li = document.createElement('li');
-            li.textContent = `${skill}: ${courseText}`;
-            ul.appendChild(li);
-          } catch (e) {
-            const li = document.createElement('li');
-            li.textContent = `${skill}: No recommended course yet.`;
-            ul.appendChild(li);
-          }
-        });
-        const skillCoursesDiv = document.getElementById('modal-skill-courses');
-        if (skillCoursesDiv) {
-          skillCoursesDiv.innerHTML = `<strong>Courses for these skills:</strong>`;
-          skillCoursesDiv.appendChild(ul);
-        }
-      }, 100);
-    }
 
     const aiScoreClass = this.getAIScoreClass(aiScore);
     const relevanceScore = this.calculateRelevanceScore(job);
