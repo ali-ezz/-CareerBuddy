@@ -581,20 +581,21 @@ class CareerPlatform {
     this._inFlightAIScore[job.id] = true;
 
     // 3. Try cache first
+    // --- DISABLE CACHE: Always call API for AI score ---
     let parsed = null;
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        parsed = JSON.parse(cached);
-        // Always coerce to number
-        job.aiScore = typeof parsed.score === "number" ? parsed.score : Number(parsed.score) || 0;
-        job.aiExplanation = typeof parsed.explanation === "string" ? parsed.explanation : "";
-        this.updateJobAIScore(job.id, job.aiScore);
-        if (forModal && typeof onDone === "function") setTimeout(onDone, 100);
-        delete this._inFlightAIScore[job.id];
-        return;
-      }
-    } catch (e) {}
+    // try {
+    //   const cached = localStorage.getItem(cacheKey);
+    //   if (cached) {
+    //     parsed = JSON.parse(cached);
+    //     // Always coerce to number
+    //     job.aiScore = typeof parsed.score === "number" ? parsed.score : Number(parsed.score) || 0;
+    //     job.aiExplanation = typeof parsed.explanation === "string" ? parsed.explanation : "";
+    //     this.updateJobAIScore(job.id, job.aiScore);
+    //     if (forModal && typeof onDone === "function") setTimeout(onDone, 100);
+    //     delete this._inFlightAIScore[job.id];
+    //     return;
+    //   }
+    // } catch (e) {}
 
     // --- DEBUG: Log what is being sent to the API ---
     let cleanDesc = job.description || "";
@@ -675,13 +676,16 @@ class CareerPlatform {
         }
       }
 
-      // Fallback: use fallback score/explanation if still missing
-      if (score === null || isNaN(score)) score = this.getFallbackAIScore(job);
-      if (!explanation || explanation.length < 5) explanation = "No detailed AI analysis was available.";
+      // --- REMOVE FALLBACK: Only use AI result, otherwise show "No result" ---
+      if (score === null || isNaN(score)) score = null;
+      if (!explanation || explanation.length < 5) explanation = "No result";
 
       job.aiScore = score;
       job.aiExplanation = explanation;
-      localStorage.setItem(cacheKey, JSON.stringify({ score, explanation }));
+      // Do not cache if no result
+      if (score !== null && explanation !== "No result") {
+        localStorage.setItem(cacheKey, JSON.stringify({ score, explanation }));
+      }
 
       // 4. UI update after fetch
       this.updateJobAIScore(job.id, score);
@@ -695,9 +699,10 @@ class CareerPlatform {
           this.fetchJobAIScoreFull(job, forModal, retryCount + 1, onDone);
         }, retryDelay * (retryCount + 1));
       } else {
-        job.aiScore = this.getFallbackAIScore(job);
-        job.aiExplanation = "No detailed AI analysis was available.";
-        localStorage.setItem(cacheKey, JSON.stringify({ score: job.aiScore, explanation: job.aiExplanation }));
+        // --- REMOVE FALLBACK: Only show "No result" if API fails ---
+        job.aiScore = null;
+        job.aiExplanation = "No result";
+        // Do not cache failed result
         this.updateJobAIScore(job.id, job.aiScore);
         if (forModal && typeof onDone === "function") setTimeout(onDone, 100);
       }
@@ -820,8 +825,13 @@ class CareerPlatform {
     if (aiScoreElement) {
       const scoreText = aiScoreElement.querySelector('.score-text');
       if (scoreText) {
-        scoreText.textContent = `${score}%`;
-        aiScoreElement.className = `ai-score ${this.getAIScoreClass(score)}`;
+        if (score === null || score === undefined) {
+          scoreText.textContent = "No result";
+          aiScoreElement.className = `ai-score`;
+        } else {
+          scoreText.textContent = `${score}%`;
+          aiScoreElement.className = `ai-score ${this.getAIScoreClass(score)}`;
+        }
       }
     }
   }

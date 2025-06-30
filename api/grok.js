@@ -14,6 +14,7 @@ export default async function handler(req, res) {
     }
 
     let messages;
+    // --- Robust context-aware prompts for each mode ---
     if (mode === "chatbot") {
       messages = [
         {
@@ -41,6 +42,7 @@ You are an expert AI assistant for a job search platform. Given a partial search
         { role: "user", content: jobDescription }
       ];
     } else if (mode === "course") {
+      // Only send the skill name, not extra context
       messages = [
         {
           role: "system",
@@ -61,9 +63,10 @@ Short Description: Learn SQL basics, querying, and data analysis using real-worl
 Do not invent links. Do not use landing pages. Only copy real course URLs.
           `.trim()
         },
-        { role: "user", content: jobDescription }
+        { role: "user", content: jobTitle || jobDescription }
       ];
     } else if (mode === "company_score") {
+      // Only send the company name (and optionally job title), not the job description
       messages = [
         {
           role: "system",
@@ -90,11 +93,23 @@ Top reasons:
         },
         { role: "user", content: jobTitle }
       ];
-    } else {
-      // --- Shorter prompt for grid risk score ---
+    } else if (mode === "risk_full" || mode === "risk") {
+      // For risk scoring, send job title and clean description
+      let cleanDesc = jobDescription || "";
+      if (/<[a-z][\s\S]*>/i.test(cleanDesc)) {
+        cleanDesc = cleanDesc.replace(/<[^>]+>/g, " ");
+      }
+      cleanDesc = cleanDesc.replace(/\s+/g, " ").trim();
+      if (cleanDesc.length > 2000) cleanDesc = cleanDesc.slice(0, 2000);
       messages = [
         { role: "system", content: "You are an expert on the future of work and AI automation." },
-        { role: "user", content: `Give a risk score (0-100) for this job's AI safety and a 1-sentence reason. Respond as: Score: XX. Reason: ... Job: ${jobTitle}. Description: ${jobDescription}` }
+        { role: "user", content: `Job Title: ${jobTitle}\nDescription: ${cleanDesc}\nGive a risk score (0-100) for this job's AI safety, an automatability breakdown (e.g. 70% automatable, 30% human oversight), and at least 3-5 specific reasons. Respond as: Score: XX. Automatability: YY% automatable, ZZ% human oversight. Reasons: ...` }
+      ];
+    } else {
+      // Fallback: just echo what was sent
+      messages = [
+        { role: "system", content: "You are an AI assistant." },
+        { role: "user", content: `Job Title: ${jobTitle}\nDescription: ${jobDescription}` }
       ];
     }
 
