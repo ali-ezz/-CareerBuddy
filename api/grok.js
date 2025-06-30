@@ -3,14 +3,26 @@ import { Groq } from 'groq-sdk';
 console.log("api/grok.js loaded");
 
 export default async function handler(req, res) {
+  const apiKey = process.env.GROK_API_KEY; // Ensure apiKey is always defined, even in catch
   console.log("api/grok.js handler invoked", req.method, req.body);
   if (req.method !== "POST") return res.status(405).end();
   try {
     const { jobTitle, jobDescription, mode } = req.body;
-    const apiKey = process.env.GROK_API_KEY;
 
     if (!apiKey) {
       return res.status(500).json({ error: "GROK_API_KEY is not set in environment variables." });
+    }
+
+    // Helper to strip HTML tags and truncate text
+    function cleanAndTruncate(text, maxLen = 800) {
+      if (!text) return "";
+      // Remove HTML tags
+      let cleaned = text.replace(/<[^>]+>/g, " ");
+      // Collapse whitespace
+      cleaned = cleaned.replace(/\s+/g, " ").trim();
+      // Truncate
+      if (cleaned.length > maxLen) cleaned = cleaned.slice(0, maxLen) + "...";
+      return cleaned;
     }
 
     let messages;
@@ -18,82 +30,38 @@ export default async function handler(req, res) {
       messages = [
         {
           role: "system",
-          content: `
-You are a professional, friendly, and highly knowledgeable AI career coach. 
-- Always respond with specific, actionable, and encouraging advice about jobs, skills, and career growth.
-- If the user shares their interests or goals (e.g. "I want to be a pilot" or "I love programming"), suggest concrete next steps, learning paths, or career options.
-- Ask follow-up questions to help clarify their goals and provide tailored guidance.
-- Never respond with just a number or a generic fallback. Never mention risk scores or AI disruption unless asked directly.
-- If the user is unsure, help them explore their interests and strengths.
-- Be warm, supportive, and concise (max 120 words).
-          `.trim()
+          content: `You are a concise, friendly AI career coach. Give actionable advice about jobs, skills, and career growth in under 50 words.`.trim()
         },
-        { role: "user", content: jobDescription }
+        { role: "user", content: cleanAndTruncate(jobDescription, 300) }
       ];
     } else if (mode === "autocomplete") {
       messages = [
         {
           role: "system",
-          content: `
-You are an expert AI assistant for a job search platform. Given a partial search input, suggest up to 7 relevant job titles or skills that are popular, in-demand, or trending. Respond with a comma-separated list only, no extra text.
-          `.trim()
+          content: `Suggest up to 5 trending job titles or skills as a comma-separated list. No extra text.`.trim()
         },
-        { role: "user", content: jobDescription }
+        { role: "user", content: cleanAndTruncate(jobDescription, 40) }
       ];
     } else if (mode === "course") {
       messages = [
         {
           role: "system",
-          content: `
-You are an expert career advisor. Given a skill, search for a real, working online course for learning or improving that skill. Only use major providers (Coursera, edX, Udemy, LinkedIn, etc.) and check that the course is available and not just a landing page. Copy the actual course URL from the provider's catalog. Respond in this format:
-
-[Course Title](URL)  
-Provider: ProviderName  
-Short Description: (1-2 sentences about what the course covers)
-
-If you cannot find a real, working course, respond with: No real course found.
-
-For example, for "SQL" you might return:
-[Databases and SQL for Data Science with Python](https://www.coursera.org/learn/sql-data-science)  
-Provider: Coursera  
-Short Description: Learn SQL basics, querying, and data analysis using real-world datasets.
-
-Do not invent links. Do not use landing pages. Only copy real course URLs.
-          `.trim()
+          content: `Given a skill, return a real online course (Coursera, edX, Udemy, LinkedIn, etc.) in this format: [Course Title](URL) Provider: ProviderName Short Description: (1 sentence). If none, say: No real course found.`.trim()
         },
-        { role: "user", content: jobDescription }
+        { role: "user", content: cleanAndTruncate(jobDescription, 30) }
       ];
     } else if (mode === "company_score") {
       messages = [
         {
           role: "system",
-          content: `
-You are an expert on workplace culture and employee satisfaction. Given a company name, estimate its employee satisfaction or success rate as a score out of 100, based on public reputation, reviews, innovation, AI adoption, and work environment. Respond in this format:
-
-Score: XX/100
-
-Top reasons:
-- Reason 1 (e.g. "Strong reputation for innovation and employee growth")
-- Reason 2 (e.g. "Positive employee reviews on Glassdoor")
-- Reason 3 (optional, e.g. "Invests in AI and future skills")
-
-Be concise and specific. Do not invent data, but use plausible reasoning based on the company's public image. If you cannot estimate a score, respond with: Score: 70/100
-
-Example:
-Score: 85/100
-
-Top reasons:
-- Strong reputation for innovation and employee growth
-- Positive employee reviews on Glassdoor
-- Invests in AI and future skills
-          `.trim()
+          content: `Given a company name, estimate employee satisfaction as Score: XX/100 and 1-2 short reasons. If unsure, Score: 70/100.`.trim()
         },
-        { role: "user", content: jobTitle }
+        { role: "user", content: cleanAndTruncate(jobTitle, 20) }
       ];
     } else {
       messages = [
-        { role: "system", content: "You are an expert on the future of work and AI automation." },
-        { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond with a short risk summary, a percentage breakdown (e.g. '70% automatable, 30% human oversight'), and a score from 0 (very at risk) to 100 (very safe). Be concise and clear.` }
+        { role: "system", content: "You are an expert on the future of work and AI automation. Respond concisely." },
+        { role: "user", content: `Analyze this job: ${cleanAndTruncate(jobTitle, 20)}. Description: ${cleanAndTruncate(jobDescription, 300)}. How safe is it from AI disruption? Give a short risk summary, a percentage breakdown (e.g. '70% automatable'), and a score from 0-100.` }
       ];
     }
 
@@ -103,7 +71,7 @@ Top reasons:
       messages,
       model: "meta-llama/llama-4-scout-17b-16e-instruct",
       temperature: 0.2,
-      max_completion_tokens: 300,
+      max_completion_tokens: 80, // Lowered from 160 to 80 to use the least tokens
       top_p: 1,
       stream: false,
       stop: null
