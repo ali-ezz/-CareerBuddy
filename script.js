@@ -558,13 +558,14 @@ class CareerPlatform {
   }
 
   async fetchAIScores() {
-    const batchSize = 3; // Reduced batch size for better performance
-    const jobs = this.filteredJobs.slice(0, 15); // Limit to first 15 jobs
-    
+    // Fetch AI Safety Score for ALL jobs in the filtered list (not just first 15)
+    const batchSize = 3;
+    const jobs = this.filteredJobs; // fetch for all jobs in the grid
+
     for (let i = 0; i < jobs.length; i += batchSize) {
       const batch = jobs.slice(i, i + batchSize);
       await Promise.all(batch.map(job => this.fetchJobAIScore(job)));
-      await new Promise(resolve => setTimeout(resolve, 1500)); // Increased delay for rate limiting
+      await new Promise(resolve => setTimeout(resolve, 800)); // Slightly faster, but still rate-limited
     }
   }
 
@@ -686,7 +687,7 @@ class CareerPlatform {
         if (isRateLimit && retryCount < maxRetries) {
           this.showAIRateLimitReminder(friendlyMessage);
           setTimeout(() => {
-            this.fetchJobAIScore(job, retryCount + 1);
+            this.fetchJobAIScore(job, retryCount + 1, onDone);
           }, retryDelay * Math.pow(2, retryCount));
           return;
         } else {
@@ -718,7 +719,7 @@ class CareerPlatform {
         this.updateJobAIScore(job.id, score);
       } else {
         job.aiScore = this.getFallbackAIScore(job);
-        this.showError(`AI score could not be fetched for job: ${job.title}. Please try again later.`);
+        job.aiExplanation = "This job's AI safety score is estimated based on its title and description. No detailed AI analysis was available.";
         this.updateJobAIScore(job.id, job.aiScore);
       }
 
@@ -727,13 +728,16 @@ class CareerPlatform {
 
       if (retryCount < maxRetries) {
         setTimeout(() => {
-          this.fetchJobAIScore(job, retryCount + 1);
+          this.fetchJobAIScore(job, retryCount + 1, onDone);
         }, retryDelay * (retryCount + 1));
       } else {
         job.aiScore = this.getFallbackAIScore(job);
+        job.aiExplanation = "This job's AI safety score is estimated based on its title and description. No detailed AI analysis was available.";
         this.updateJobAIScore(job.id, job.aiScore);
       }
     }
+    // Always update the modal "Why" section if a callback is provided
+    if (typeof onDone === "function") setTimeout(onDone, 100);
   }
 
   showAIRateLimitReminder(message) {
@@ -849,6 +853,14 @@ class CareerPlatform {
     const overlay = document.getElementById('job-modal-overlay');
     
     if (!modal || !overlay) return;
+
+    // If AI score or explanation is missing, trigger fetch and update modal when done
+    if (typeof job.aiScore !== "number" || !job.aiExplanation) {
+      this.fetchJobAIScore(job).then(() => {
+        // After fetching, if modal is still open for this job, update the "Why" section
+        setTimeout(() => this.updateJobModalWhySection(job), 200);
+      });
+    }
 
     const aiScore = job.aiScore || 'Analyzing...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
