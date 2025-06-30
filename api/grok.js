@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     }
 
     // Truncate all user input to avoid context overflow
-    // Remove HTML tags and limit length even further for safety
+    // Remove HTML tags and limit length, but allow enough for reasoning
     function cleanText(str, maxLen) {
       if (!str) return '';
       // Remove HTML tags/entities
@@ -24,8 +24,8 @@ export default async function handler(req, res) {
       // Truncate
       return txt.slice(0, maxLen);
     }
-    const safeJobTitle = cleanText(jobTitle, 80);
-    const safeJobDescription = cleanText(jobDescription, 120);
+    const safeJobTitle = cleanText(jobTitle, 120);
+    const safeJobDescription = cleanText(jobDescription, 400);
 
     let messages;
     if (mode === "chatbot") {
