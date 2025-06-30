@@ -569,20 +569,32 @@ class CareerPlatform {
   }
 
   // Fetch BOTH the AI Safety Score (number) and explanation, and cache them together
-  // If forGrid is true, only update the score (for grid display); if false, update both score and explanation (for modal)
+  // Always update both score and explanation for both grid and modal
   async fetchJobAIScoreFull(job, forModal = false, retryCount = 0, onDone) {
-    const cacheKey = `aiScoreFull_${btoa(job.title + (job.description || "")).substring(0, 24)}`;
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (typeof parsed.score === "number") job.aiScore = parsed.score;
-        if (typeof parsed.explanation === "string") job.aiExplanation = parsed.explanation;
+    // --- Deep-dive robust version ---
+    // 1. Unique cache key
+    const cacheKey = `aiScoreFull_${job.id || btoa(job.title + job.company_name + (job.description || "")).substring(0, 32)}`;
+
+    // 2. Track in-flight fetches to avoid duplicate requests
+    this._inFlightAIScore = this._inFlightAIScore || {};
+    if (this._inFlightAIScore[job.id]) return;
+    this._inFlightAIScore[job.id] = true;
+
+    // 3. Try cache first
+    let parsed = null;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        parsed = JSON.parse(cached);
+        // Always coerce to number
+        job.aiScore = typeof parsed.score === "number" ? parsed.score : Number(parsed.score) || 0;
+        job.aiExplanation = typeof parsed.explanation === "string" ? parsed.explanation : "";
         this.updateJobAIScore(job.id, job.aiScore);
         if (forModal && typeof onDone === "function") setTimeout(onDone, 100);
+        delete this._inFlightAIScore[job.id];
         return;
-      } catch (e) {}
-    }
+      }
+    } catch (e) {}
 
     const maxRetries = 7;
     const retryDelay = 5000;
@@ -613,8 +625,10 @@ class CareerPlatform {
           setTimeout(() => {
             this.fetchJobAIScoreFull(job, forModal, retryCount + 1, onDone);
           }, retryDelay * Math.pow(2, retryCount));
+          delete this._inFlightAIScore[job.id];
           return;
         } else {
+          delete this._inFlightAIScore[job.id];
           throw new Error(`HTTP ${response.status}`);
         }
       }
@@ -645,15 +659,17 @@ class CareerPlatform {
       }
 
       // Fallback: use fallback score/explanation if still missing
-      if (score === null) score = this.getFallbackAIScore(job);
-      if (!explanation) explanation = "No detailed AI analysis was available.";
+      if (score === null || isNaN(score)) score = this.getFallbackAIScore(job);
+      if (!explanation || explanation.length < 5) explanation = "No detailed AI analysis was available.";
 
       job.aiScore = score;
       job.aiExplanation = explanation;
       localStorage.setItem(cacheKey, JSON.stringify({ score, explanation }));
 
+      // 4. UI update after fetch
       this.updateJobAIScore(job.id, score);
 
+      // 5. If modal is open and data changed, re-render
       if (forModal && typeof onDone === "function") setTimeout(onDone, 100);
 
     } catch (error) {
@@ -668,6 +684,8 @@ class CareerPlatform {
         this.updateJobAIScore(job.id, job.aiScore);
         if (forModal && typeof onDone === "function") setTimeout(onDone, 100);
       }
+    } finally {
+      delete this._inFlightAIScore[job.id];
     }
   }
 
@@ -794,8 +812,20 @@ class CareerPlatform {
       }, 100);
     });
 
-    const aiScore = job.aiScore || 'Analyzing...';
-    const aiScoreClass = this.getAIScoreClass(job.aiScore);
+    // Always use the latest cached values for both score and explanation
+    const cacheKey = `aiScoreFull_${btoa(job.title + (job.description || "")).substring(0, 24)}`;
+    let aiScore = job.aiScore || 'Analyzing...';
+    let aiExplanation = job.aiExplanation;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (typeof parsed.score === "number") aiScore = parsed.score;
+        if (typeof parsed.explanation === "string") aiExplanation = parsed.explanation;
+      }
+    } catch (e) {}
+
+    const aiScoreClass = this.getAIScoreClass(aiScore);
     const relevanceScore = this.calculateRelevanceScore(job);
     // Format/clean AI explanation for "Why this score?"
     function formatAIExplanation(raw, aiScore) {
