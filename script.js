@@ -91,40 +91,7 @@ class CareerPlatform {
     }
   }
 
-  // Debounce utility
-  debounce(fn, delay) {
-    let timer = null;
-    return function (...args) {
-      clearTimeout(timer);
-      timer = setTimeout(() => fn.apply(this, args), delay);
-    };
-  }
-
-  constructor() {
-    // ...existing constructor code...
-    this.handleSearchSuggestions = this.debounce(this._handleSearchSuggestions.bind(this), 400);
-    // ...rest of constructor...
-    this.jobs = [];
-    this.filteredJobs = [];
-    this.userPreferences = JSON.parse(localStorage.getItem('userPreferences') || '{}');
-    this.currentPage = 1;
-    this.jobsPerPage = 12;
-    this.isLoading = false;
-    this.searchQuery = '';
-    this.filters = {
-      location: '',
-      experience: '',
-      salary: '',
-      sort: 'relevance',
-      remote: false,
-      skills: []
-    };
-    this.aiAssistant = new AIAssistant();
-    this.analytics = new PlatformAnalytics();
-    this.init();
-  }
-
-  async _handleSearchSuggestions(query) {
+  async handleSearchSuggestions(query) {
     if (query.length < 2) {
       this.showSearchSuggestions([]);
       return;
