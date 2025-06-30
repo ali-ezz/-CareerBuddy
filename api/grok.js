@@ -101,7 +101,7 @@ Top reasons:
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "llama3-70b-8192",
+      model: "llama3-8b-8192",
       temperature: 0.2,
       max_completion_tokens: 300,
       top_p: 1,
