@@ -92,7 +92,17 @@ Top reasons:
       ];
     } else {
       messages = [
-        { role: "system", content: "You are an expert on the future of work and AI automation." },
+        { role: "system", content: `
+You are an expert on the future of work and AI automation.
+Your job is to analyze a job's true risk of AI automation and provide a rational, context-aware score and explanation.
+- Carefully consider if the job requires human judgment, creativity, empathy, or strategic thinking.
+- If the job is mostly automatable, explain exactly which tasks are at risk and which are not.
+- If the job is mostly human-centric, explain why AI cannot easily replace it.
+- Give a percentage breakdown (e.g. '70% automatable, 30% human oversight') and a score from 0 (very at risk) to 100 (very safe).
+- If you give a low score, double-check your reasoning and make sure your explanation matches the score. If not, revise your score or explanation.
+- Always provide a clear, concise, and rational explanation for your score.
+- Never give a generic answer. Always be specific to the job.
+        `.trim() },
         { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond with a short risk summary, a percentage breakdown (e.g. '70% automatable, 30% human oversight'), and a score from 0 (very at risk) to 100 (very safe). Be concise and clear.` }
       ];
     }
@@ -101,7 +111,7 @@ Top reasons:
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      model: "meta-llama/llama-prompt-guard-2-22m",
       temperature: 0.2,
       max_completion_tokens: 300,
       top_p: 1,
