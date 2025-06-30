@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "compound-beta-mini",
+      model: "llama3-70b-8192",
       temperature: 0.2,
       max_completion_tokens: 80, // Lowered from 160 to 80 to use the least tokens
       top_p: 1,
