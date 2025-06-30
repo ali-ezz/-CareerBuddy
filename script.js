@@ -671,35 +671,52 @@ setTimeout(() => {
   getFallbackAIScore(job) {
     const title = job.title.toLowerCase();
     const description = (job.description || '').toLowerCase();
-    
-    const highSafetyKeywords = ['software', 'developer', 'engineer', 'designer', 'creative', 'strategy', 'manager', 'architect', 'lead', 'senior', 'principal', 'ai', 'machine learning', 'data scientist'];
-    const mediumSafetyKeywords = ['analyst', 'consultant', 'specialist', 'coordinator', 'officer', 'advisor'];
-    const lowerSafetyKeywords = ['clerk', 'assistant', 'operator', 'entry', 'junior', 'support'];
-    
+
+    // Improved logic: boost score if creative, strategic, or human-centric terms are present
+    const highSafetyKeywords = [
+      'software', 'developer', 'engineer', 'designer', 'creative', 'strategy', 'manager', 'architect', 'lead', 'senior', 'principal', 'ai', 'machine learning', 'data scientist',
+      'finance', 'accounting', 'procurement', 'storytelling', 'narrative', 'innovation', 'collaboration', 'human', 'oversight', 'communication', 'leadership', 'problem solving', 'critical thinking'
+    ];
+    const mediumSafetyKeywords = [
+      'analyst', 'consultant', 'specialist', 'coordinator', 'officer', 'advisor', 'support', 'marketing', 'sales', 'content', 'media'
+    ];
+    const lowerSafetyKeywords = [
+      'clerk', 'assistant', 'operator', 'entry', 'junior', 'data entry', 'routine', 'repetitive', 'processing'
+    ];
+
     let score = 50;
-    
+
     for (const keyword of highSafetyKeywords) {
       if (title.includes(keyword) || description.includes(keyword)) {
-        score = Math.max(score, 75 + Math.floor(Math.random() * 20));
+        score = Math.max(score, 80 + Math.floor(Math.random() * 15));
         break;
       }
     }
-    
+
     for (const keyword of mediumSafetyKeywords) {
       if (title.includes(keyword) || description.includes(keyword)) {
-        score = Math.max(score, 55 + Math.floor(Math.random() * 20));
+        score = Math.max(score, 60 + Math.floor(Math.random() * 15));
         break;
       }
     }
-    
+
     for (const keyword of lowerSafetyKeywords) {
       if (title.includes(keyword) || description.includes(keyword)) {
-        score = Math.min(score, 45 + Math.floor(Math.random() * 15));
+        score = Math.min(score, 40 + Math.floor(Math.random() * 10));
         break;
       }
     }
-    
-    return Math.min(Math.max(score, 20), 95);
+
+    // If description mentions "less likely to be automated", "human oversight", "requires creativity", boost score
+    if (
+      /less likely to be (heavily )?automated|human oversight|requires creativity|requires human|strategic thinking|engaging narratives|innovation|collaboration|critical thinking|problem solving/i.test(
+        description
+      )
+    ) {
+      score = Math.max(score, 85 + Math.floor(Math.random() * 10));
+    }
+
+    return Math.min(Math.max(score, 30), 98);
   }
 
   updateJobAIScore(jobId, score) {
@@ -784,11 +801,14 @@ setTimeout(() => {
       }
       // Compose
       return `
-        <div style="font-weight:700;color:#e94560;margin-bottom:6px;">Why this score?</div>
+        <div style="font-weight:700;color:#e94560;margin-bottom:6px;">Why this AI Safety score?</div>
         ${breakdown ? `<div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>` : ''}
+        ${bullets.length > 0 ? `
+        <div style="font-weight:600;color:#222;margin-bottom:2px;">Why?</div>
         <ul style="margin:0 0 0 18px;padding:0 0 0 0.5em;">
           ${bullets.slice(0, 4).map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
         </ul>
+        ` : ''}
       `;
     }
 
