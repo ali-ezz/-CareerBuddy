@@ -760,7 +760,7 @@ setTimeout(() => {
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
     const relevanceScore = this.calculateRelevanceScore(job);
     // Format/clean AI explanation for "Why this score?"
-    function formatAIExplanation(raw) {
+    function formatAIExplanation(raw, aiScore) {
       if (!raw) return '';
       // Remove unwanted lines (Job Analysis, Risk Summary, etc.)
       let cleaned = raw
@@ -799,15 +799,19 @@ setTimeout(() => {
       if (bullets.length === 0) {
         bullets = cleaned.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 4);
       }
-      // Compose
+
+      // Compose two sections: AI Safety Score and Automatability
       return `
-        <div style="font-weight:700;color:#e94560;margin-bottom:6px;">Why this AI Safety score?</div>
-        ${breakdown ? `<div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>` : ''}
+        <div style="font-weight:700;color:#e94560;margin-bottom:6px;">AI Safety Score: ${typeof aiScore === 'number' ? aiScore + '%' : ''}</div>
         ${bullets.length > 0 ? `
         <div style="font-weight:600;color:#222;margin-bottom:2px;">Why?</div>
-        <ul style="margin:0 0 0 18px;padding:0 0 0 0.5em;">
+        <ul style="margin:0 0 12px 18px;padding:0 0 0 0.5em;">
           ${bullets.slice(0, 4).map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
         </ul>
+        ` : ''}
+        ${breakdown ? `
+        <div style="font-weight:700;color:#e94560;margin-bottom:4px;">Automatability</div>
+        <div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>
         ` : ''}
       `;
     }
@@ -1017,7 +1021,7 @@ setTimeout(() => {
           <div class="ai-explanation" id="job-why-score-section" style="margin-top:18px;">
             <span class="ai-explanation-icon">💡</span>
             <div class="ai-explanation-content" id="job-why-score-content">
-              ${job.aiExplanation ? formatAIExplanation(job.aiExplanation) : '<em>Loading job score...</em>'}
+              ${job.aiExplanation ? formatAIExplanation(job.aiExplanation, job.aiScore) : '<em>Loading job score...</em>'}
             </div>
           </div>
           ${companyWhyHtml}
