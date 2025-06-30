@@ -105,9 +105,10 @@ Top reasons:
         { role: "system", content: `
 You are an expert on the future of work and AI automation.
 - Always provide a nuanced, job-specific analysis.
-- Do NOT give the same score or breakdown for every job.
+- Do NOT give the same score or breakdown for every job, even if jobs are similar.
+- Use a wide range of scores and breakdowns (not just 60/70/30 or 42/80).
+- If you have already given a score to a similar job, pick a different score this time.
 - Consider the unique aspects of the job, industry, and required skills.
-- Use a wide range of scores and breakdowns (not just 60/70/30).
 - If the job is highly creative, strategic, or people-focused, lower the automatability.
 - If the job is repetitive, data-driven, or rules-based, increase the automatability.
 - Give at least 3 concise, bullet-point reasons specific to this job.
@@ -138,11 +139,11 @@ Reasons:
     let temperature = 0.2;
     if (mode === "risk" || mode === "company_score") {
       maxTokens = 80;
-      temperature = 0.5; // More variety for these modes
+      temperature = 0.8; // More variety for these modes
     }
     if (mode === "risk_full") {
       maxTokens = 120;
-      temperature = 0.5; // More variety and detail for risk_full
+      temperature = 0.9; // More variety and detail for risk_full
     }
     if (mode === "course") maxTokens = 80;
     if (mode === "chatbot") maxTokens = 120;
