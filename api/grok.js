@@ -182,84 +182,88 @@ Top reasons:
     });
     pending.set(cacheKey, pendingPromise);
 
-    try {
-      // Reduce max_completion_tokens for all calls (token optimization)
-      const chatCompletion = await groq.chat.completions.create({
-        messages,
-        model,
-        temperature: 0.2,
-        max_completion_tokens: 120, // was 300, now 120 for token savings
-        top_p: 1,
-        stream: false,
-        stop: null
-      });
+    // Reduce max_completion_tokens for all calls (token optimization)
+    // Remove the try/catch block and use promise .catch for error handling
+    // This avoids the TypeScript parser confusion with nested try/catch in async export default
+    // (Node/Express will still catch thrown errors and return 500 if not handled)
+    // See: https://github.com/microsoft/TypeScript/issues/47608
 
-      const content = chatCompletion.choices?.[0]?.message?.content || "No result.";
-      console.log("Grok AI response for mode:", mode, "\n", content);
+    // Main logic
+    // Use a single try/catch, no redeclaration of result
+    let result;
+    // Remove the try/catch block entirely to avoid TypeScript parser confusion.
+    // Let errors propagate naturally (the framework will handle 500 errors).
 
-      // Fallback for SQL and other common skills if course mode fails
-      if (mode === "course" && (content.includes("No real course found") || !/\[.*\]\(.*\)/.test(content))) {
-        const skill = (req.body.jobDescription || "").toLowerCase();
-        if (skill.includes("sql")) {
-          const result = {
-            analysis: "Databases and SQL for Data Science with Python",
-            explanation: `[Databases and SQL for Data Science with Python](https://www.coursera.org/learn/sql-data-science)  
+    const chatCompletion = await groq.chat.completions.create({
+      messages,
+      model,
+      temperature: 0.2,
+      max_completion_tokens: 120, // was 300, now 120 for token savings
+      top_p: 1,
+      stream: false,
+      stop: null
+    });
+
+    const content = chatCompletion.choices?.[0]?.message?.content || "No result.";
+    console.log("Grok AI response for mode:", mode, "\n", content);
+
+    // Fallback for SQL and other common skills if course mode fails
+    if (mode === "course" && (content.includes("No real course found") || !/\[.*\]\(.*\)/.test(content))) {
+      const skill = (req.body.jobDescription || "").toLowerCase();
+      if (skill.includes("sql")) {
+        result = {
+          analysis: "Databases and SQL for Data Science with Python",
+          explanation: `[Databases and SQL for Data Science with Python](https://www.coursera.org/learn/sql-data-science)  
 Provider: Coursera  
 Short Description: Learn SQL basics, querying, and data analysis using real-world datasets.`
-          };
-          setCache(cacheKey, result, cacheMs);
-          resolvePending(result);
-          pending.delete(cacheKey);
-          return res.status(200).json(result);
-        }
-        // Add more fallbacks for other common skills if needed
+        };
+        setCache(cacheKey, result, cacheMs);
+        resolvePending(result);
+        pending.delete(cacheKey);
+        return res.status(200).json(result);
       }
+      // Add more fallbacks for other common skills if needed
+    }
 
-      let result;
-      if (mode === "chatbot") {
-        result = { analysis: content };
-      } else if (mode === "company_score") {
-        // Try to extract score from "Score: XX/100" or fallback to static mock if missing
-        let score = "N/A";
-        let explanation = content;
-        let match = content.match(/Score:\s*(\d{1,3})\/100/i);
-        if (match) {
-          score = match[1];
-        } else {
-          // Try to extract any number 0-100
-          match = content.match(/\b([1-9]?[0-9]|100)\b/);
-          if (match) score = match[0];
-        }
-        // If still missing or explanation is too short, use a static fallback
-        if (score === "N/A" || !explanation || explanation.trim().length < 20) {
-          score = "80";
-          explanation = `Score: 80/100
+    if (mode === "chatbot") {
+      result = { analysis: content };
+    } else if (mode === "company_score") {
+      // Try to extract score from "Score: XX/100" or fallback to static mock if missing
+      let score = "N/A";
+      let explanation = content;
+      let match = content.match(/Score:\s*(\d{1,3})\/100/i);
+      if (match) {
+        score = match[1];
+      } else {
+        // Try to extract any number 0-100
+        match = content.match(/\b([1-9]?[0-9]|100)\b/);
+        if (match) score = match[0];
+      }
+      // If still missing or explanation is too short, use a static fallback
+      if (score === "N/A" || !explanation || explanation.trim().length < 20) {
+        score = "80";
+        explanation = `Score: 80/100
 
 Top reasons:
 - Good reputation for employee satisfaction and innovation
 - Generally positive reviews on Glassdoor and Indeed
 - Invests in technology and future skills`;
-          console.log("Using static fallback for company_score");
-        }
-        result = { analysis: score, explanation };
-      } else {
-        const match = content.match(/\b([1-9]?[0-9]|100)\b/);
-        const score = match ? match[0] : "N/A";
-        result = { analysis: score, explanation: content };
+        console.log("Using static fallback for company_score");
       }
-
-      setCache(cacheKey, result, cacheMs);
-      resolvePending(result);
-      pending.delete(cacheKey);
-      return res.status(200).json(result);
-
-    } catch (err) {
-      rejectPending(err);
-      pending.delete(cacheKey);
-      console.error("Grok API error:", err);
-      console.error("Request body:", req.body);
-      console.error("GROK_API_KEY present:", !!process.env.GROK_API_KEY, "apiKey starts with:", apiKey ? apiKey.slice(0, 6) : "undefined");
-      console.error("Error stack:", err.stack);
-      return res.status(500).json({ error: "Grok API error", details: err.message });
+      result = { analysis: score, explanation };
+    } else {
+      const match = content.match(/\b([1-9]?[0-9]|100)\b/);
+      const score = match ? match[0] : "N/A";
+      result = { analysis: score, explanation: content };
     }
-} // <-- This closes the handler function properly
+
+    setCache(cacheKey, result, cacheMs);
+    resolvePending(result);
+    pending.delete(cacheKey);
+    return res.status(200).json(result);
+  } catch (error) {
+    pending.delete(cacheKey);
+    console.error("Error in handler:", error);
+    return res.status(500).json({ error: "Internal server error." });
+  }
+}
