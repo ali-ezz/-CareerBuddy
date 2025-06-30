@@ -232,7 +232,7 @@ class CareerPlatform {
       this.populateFilters();
       this.applyFilters();
       this.renderJobs();
-      this.fetchAIScores();
+      // this.fetchAIScores(); // REMOVE: Only fetch AI scores on demand (modal open)
       this.analytics.trackJobsFetched(this.jobs.length, keyword);
       
     } catch (error) {
@@ -825,6 +825,27 @@ class CareerPlatform {
     
     if (!modal || !overlay) return;
 
+    // If no AI score yet, fetch it now (on demand)
+    if (typeof job.aiScore !== 'number' && !job._aiScoreLoading) {
+      job._aiScoreLoading = true;
+      this.fetchJobAIScore(job).then(() => {
+        // After fetching, update modal content if still open
+        const whyBox = document.getElementById('job-why-score-content');
+        if (whyBox && job.aiExplanation) {
+          whyBox.innerHTML = formatAIExplanation(job.aiExplanation, job.aiScore);
+        }
+        // Also update the score at the top
+        const modal = document.getElementById('job-modal');
+        if (modal) {
+          const aiScoreClass = this.getAIScoreClass(job.aiScore);
+          const aiScoreElem = modal.querySelector('.ai-score');
+          if (aiScoreElem) {
+            aiScoreElem.innerHTML = `🤖 ${typeof job.aiScore === 'number' ? `${job.aiScore}% Safe from AI` : job.aiScore}`;
+            aiScoreElem.className = `ai-score ${aiScoreClass}`;
+          }
+        }
+      });
+    }
     const aiScore = job.aiScore || 'Analyzing...';
     const aiScoreClass = this.getAIScoreClass(job.aiScore);
     const relevanceScore = this.calculateRelevanceScore(job);
