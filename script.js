@@ -803,13 +803,23 @@ class CareerPlatform {
     if (!modal || !overlay) return;
 
     // Always fetch both score and explanation together for modal, and update both top and "Why" section
+    // --- FIX: Only update relevant DOM nodes, do not re-render modal to prevent flicker ---
     this.fetchJobAIScoreFull(job, true, 0, () => {
+      // Update only the AI score and explanation in-place
       setTimeout(() => {
-        // Re-render the modal completely to ensure all values update
-        if (document.getElementById('job-modal-overlay')?.classList.contains('open')) {
-          this.openJobModal(jobId);
+        // Update AI score at the top
+        const aiScoreClass = this.getAIScoreClass(job.aiScore);
+        const aiScoreBox = document.querySelector('#job-modal .ai-score');
+        if (aiScoreBox) {
+          aiScoreBox.className = `ai-score ${aiScoreClass}`;
+          aiScoreBox.innerHTML = `<span class="score-icon">🤖</span> ${typeof job.aiScore === 'number' ? `${job.aiScore}% Safe from AI` : job.aiScore}`;
         }
-      }, 100);
+        // Update "Why" section
+        const whyBox = document.getElementById('job-why-score-content');
+        if (whyBox && job.aiExplanation) {
+          whyBox.innerHTML = formatAIExplanation(job.aiExplanation, job.aiScore);
+        }
+      }, 0);
     });
 
     // Always use the latest cached values for both score and explanation
