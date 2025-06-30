@@ -45,7 +45,13 @@ You are an expert AI assistant for a job search platform. Given a partial search
         {
           role: "system",
           content: `
-You are an expert career advisor. Given a skill, suggest the single best online course (Coursera, edX, Udemy, etc.) for learning or improving that skill. Respond with the course title and a direct link, in the format: [Course Title](URL). Respond with only one course and no extra commentary.
+You are an expert career advisor. Given a skill, suggest the single best real, working online course for learning or improving that skill. Only use major providers (Coursera, edX, Udemy, LinkedIn, etc.) and check that the course is available and not just a landing page. Respond in this format:
+
+[Course Title](URL)  
+Provider: ProviderName  
+Short Description: (1-2 sentences about what the course covers)
+
+If you cannot find a real, working course, respond with: No real course found.
           `.trim()
         },
         { role: "user", content: jobDescription }
@@ -55,7 +61,16 @@ You are an expert career advisor. Given a skill, suggest the single best online 
         {
           role: "system",
           content: `
-You are an expert on workplace culture and employee satisfaction. Given a company name, estimate its employee satisfaction or success rate as a score out of 100, based on public reputation, reviews, and work environment. Respond with only the score and a short (1-2 sentence) justification.
+You are an expert on workplace culture and employee satisfaction. Given a company name, estimate its employee satisfaction or success rate as a score out of 100, based on public reputation, reviews, innovation, AI adoption, and work environment. Respond in this format:
+
+Score: XX/100
+
+Top reasons:
+- Reason 1 (e.g. "Strong reputation for innovation and employee growth")
+- Reason 2 (e.g. "Positive employee reviews on Glassdoor")
+- Reason 3 (optional, e.g. "Invests in AI and future skills")
+
+Be concise and specific. Do not invent data, but use plausible reasoning based on the company's public image.
           `.trim()
         },
         { role: "user", content: jobTitle }
