@@ -233,6 +233,18 @@ class CareerPlatform {
 
   extractExperienceLevel(job) {
     const title = job.title.toLowerCase();
+    // Executive detection
+    if (
+      title.includes('executive') ||
+      title.includes('chief') ||
+      title.includes('cto') ||
+      title.includes('ceo') ||
+      title.includes('cfo') ||
+      title.includes('coo') ||
+      title.includes('vp') ||
+      title.includes('vice president') ||
+      title.includes('head')
+    ) return 'Executive';
     if (title.includes('senior') || title.includes('lead') || title.includes('principal')) return 'Senior';
     if (title.includes('junior') || title.includes('entry') || title.includes('intern')) return 'Entry';
     return 'Mid';
