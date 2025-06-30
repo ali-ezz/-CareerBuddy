@@ -813,7 +813,11 @@ class CareerPlatform {
     });
 
     // Always use the latest cached values for both score and explanation
-    const cacheKey = `aiScoreFull_${btoa(job.title + (job.description || "")).substring(0, 24)}`;
+    // FIX: Use a UTF-8 safe btoa for cache key to avoid InvalidCharacterError
+    function utf8ToB64(str) {
+      return btoa(unescape(encodeURIComponent(str)));
+    }
+    const cacheKey = `aiScoreFull_${utf8ToB64(job.title + (job.description || "")).substring(0, 24)}`;
     let aiScore = job.aiScore || 'Analyzing...';
     let aiExplanation = job.aiExplanation;
     try {
