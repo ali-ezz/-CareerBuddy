@@ -596,6 +596,23 @@ class CareerPlatform {
       }
     } catch (e) {}
 
+    // --- DEBUG: Log what is being sent to the API ---
+    let cleanDesc = job.description || "";
+    // Remove HTML tags if present
+    if (/<[a-z][\s\S]*>/i.test(cleanDesc)) {
+      cleanDesc = cleanDesc.replace(/<[^>]+>/g, " ");
+    }
+    // Collapse whitespace
+    cleanDesc = cleanDesc.replace(/\s+/g, " ").trim();
+    // Limit to 2000 chars for API
+    if (cleanDesc.length > 2000) cleanDesc = cleanDesc.slice(0, 2000);
+
+    console.log("[AI DEBUG] Sending to /api/grok:", {
+      jobTitle: job.title,
+      jobDescription: cleanDesc,
+      mode: "risk_full"
+    });
+
     const maxRetries = 7;
     const retryDelay = 5000;
 
@@ -605,7 +622,7 @@ class CareerPlatform {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jobTitle: job.title,
-          jobDescription: job.description || job.title,
+          jobDescription: cleanDesc,
           mode: "risk_full"
         })
       });
@@ -1032,12 +1049,26 @@ class CareerPlatform {
       // Fetch company score asynchronously and update only the relevant sections
       setTimeout(async () => {
         try {
+          // Use job description as context for company score if available
+          let cleanDesc = job.description || "";
+          if (/<[a-z][\s\S]*>/i.test(cleanDesc)) {
+            cleanDesc = cleanDesc.replace(/<[^>]+>/g, " ");
+          }
+          cleanDesc = cleanDesc.replace(/\s+/g, " ").trim();
+          if (cleanDesc.length > 2000) cleanDesc = cleanDesc.slice(0, 2000);
+
+          console.log("[AI DEBUG] Sending to /api/grok (company_score):", {
+            jobTitle: job.company_name,
+            jobDescription: cleanDesc,
+            mode: "company_score"
+          });
+
           const resp = await fetch('/api/grok', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               jobTitle: job.company_name,
-              jobDescription: "",
+              jobDescription: cleanDesc,
               mode: "company_score"
             })
           });
