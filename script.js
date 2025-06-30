@@ -802,20 +802,23 @@ setTimeout(() => {
       `;
     }
 
-    const aiExplanation = job.aiExplanation
-      ? `<div class="ai-explanation">
-            <span class="ai-explanation-icon">💡</span>
-            <div class="ai-explanation-content">${formatAIExplanation(job.aiExplanation)}</div>
-        </div>`
-      : '';
+    // Combined "Why this score?" section (job + company)
+    let combinedWhyScoreHtml = `<div class="ai-explanation" id="combined-why-score">
+      <span class="ai-explanation-icon">💡</span>
+      <div class="ai-explanation-content">
+        <div id="why-job-score">${job.aiExplanation ? formatAIExplanation(job.aiExplanation) : '<em>Loading job score...</em>'}</div>
+        <div id="why-company-score" style="margin-top:18px;">${
+          job.company_name
+            ? '<em>Loading company score...</em>'
+            : ''
+        }</div>
+      </div>
+    </div>`;
 
-    // Company success rate (AI-powered)
-    let companyScoreHtml = '';
+    // Fetch company score asynchronously and update the combined section
     if (job.company_name) {
-      companyScoreHtml = `<div class="company-score" id="company-score-box" style="margin-left:12px;display:inline-block;min-width:160px;">Loading company score...</div>`;
-      // Fetch company score asynchronously after modal is shown
       setTimeout(async () => {
-        const box = document.getElementById('company-score-box');
+        const box = document.getElementById('why-company-score');
         if (box) {
           try {
             const resp = await fetch('/api/grok', {
@@ -832,11 +835,11 @@ setTimeout(() => {
             if (data && data.explanation) {
               scoreText = formatCompanyScore(data.explanation);
             } else {
-              scoreText = "N/A";
+              scoreText = "<em>N/A</em>";
             }
             box.innerHTML = scoreText;
           } catch (e) {
-            box.innerHTML = "N/A";
+            box.innerHTML = "<em>N/A</em>";
           }
         }
       }, 100);
@@ -869,18 +872,23 @@ setTimeout(() => {
                 // Markdown link format: [Course Title](URL)
                 const match = data.explanation.match(/\[([^\]]+)\]\(([^)]+)\)/);
                 if (match) {
-                  courseHtml = `<a href="${match[2]}" target="_blank" rel="noopener">${match[1]}</a>`;
+                  // Only show if link is from a known provider
+                  const url = match[2];
+                  if (/coursera|udemy|edx|linkedin|futurelearn|pluralsight|khanacademy|codecademy|skillshare|openai|mit\.edu|harvard\.edu|stanford\.edu/i.test(url)) {
+                    courseHtml = `<a href="${url}" target="_blank" rel="noopener">${match[1]}</a>`;
+                  }
                 }
               }
               if (!courseHtml) {
-                courseHtml = `<span>${skill}</span>`;
+                // Show nothing or a friendly message for this skill
+                courseHtml = `<span style="color:#aaa;font-style:italic;">No good course found</span>`;
               }
               const li = document.createElement('li');
               li.innerHTML = `${skill}: ${courseHtml}`;
               ul.appendChild(li);
             } catch (e) {
               const li = document.createElement('li');
-              li.textContent = skill;
+              li.innerHTML = `${skill}: <span style="color:#aaa;font-style:italic;">No good course found</span>`;
               ul.appendChild(li);
             }
           });
@@ -906,7 +914,6 @@ setTimeout(() => {
           <div class="ai-score ${aiScoreClass}" style="font-size: 1.1rem;">
             🤖 ${typeof aiScore === 'number' ? `${aiScore}% Safe from AI` : aiScore}
           </div>
-          ${companyScoreHtml}
           ${relevanceScore > 50 ? `<div class="relevance-score" style="background: #f59e42; color: #fff; padding: 6px 14px; border-radius: 16px; font-weight: 600;">🎯 ${Math.round(relevanceScore)}% Match</div>` : ''}
         </div>
         <div class="modal-details" style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 32px; margin-bottom: 24px;">
@@ -930,7 +937,7 @@ setTimeout(() => {
           <div class="description-content" style="line-height: 1.7; color: #222;">
             ${job.description || 'No description available'}
           </div>
-          ${aiExplanation}
+          ${combinedWhyScoreHtml}
         </div>
         <div class="modal-actions" style="display: flex; gap: 16px; margin-top: 16px;">
           <button class="btn-secondary" onclick="careerPlatform.askAIAboutJob('${job.id}')">
