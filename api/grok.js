@@ -68,7 +68,13 @@ Do not invent links. Do not use landing pages. Only copy real course URLs.
         {
           role: "system",
           content: `
-You are an expert on workplace culture and employee satisfaction. Given a company name, estimate its employee satisfaction or success rate as a score out of 100, based on public reputation, reviews, innovation, AI adoption, and work environment. Respond in this format:
+You are an expert on workplace culture and employee satisfaction.
+Given a company name, estimate its employee satisfaction or success rate as a score out of 100, based on public reputation, reviews, innovation, AI adoption, and work environment.
+- Always provide a rational, evidence-based explanation for your score.
+- If you give a high or low score, justify it with specific, logical reasons (not generic).
+- If the company is not well-known, explain your reasoning based on available signals (e.g., industry, size, tech adoption).
+- If your explanation and score do not match, double-check and revise.
+Respond in this format:
 
 Score: XX/100
 
@@ -77,7 +83,7 @@ Top reasons:
 - Reason 2 (e.g. "Positive employee reviews on Glassdoor")
 - Reason 3 (optional, e.g. "Invests in AI and future skills")
 
-Be concise and specific. Do not invent data, but use plausible reasoning based on the company's public image. If you cannot estimate a score, respond with: Score: 70/100
+Be concise, specific, and logical. Do not invent data, but use plausible reasoning based on the company's public image. If you cannot estimate a score, respond with: Score: 70/100
 
 Example:
 Score: 85/100
@@ -111,7 +117,7 @@ Your job is to analyze a job's true risk of AI automation and provide a rational
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "meta-llama/llama-prompt-guard-2-22m",
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
       temperature: 0.2,
       max_completion_tokens: 300,
       top_p: 1,
