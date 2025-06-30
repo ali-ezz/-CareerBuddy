@@ -17,55 +17,37 @@ export default async function handler(req, res) {
     if (mode === "chatbot") {
       messages = [
         {
-          role: "system",
-          content: `
-You are a friendly, expert AI career coach. Give concise, actionable advice (max 3 sentences). Be supportive and specific.
-          `.trim()
-        },
-        { role: "user", content: jobDescription }
+          role: "user",
+          content: `You are a friendly, expert AI career coach. Give concise, actionable advice (max 3 sentences). Be supportive and specific.\n\nUser: ${jobDescription}`
+        }
       ];
     } else if (mode === "autocomplete") {
       messages = [
         {
-          role: "system",
-          content: `
-You are an expert AI assistant for a job search platform. Given a partial search input, suggest up to 7 relevant job titles or skills that are popular, in-demand, or trending. Respond with a comma-separated list only, no extra text.
-          `.trim()
-        },
-        { role: "user", content: jobDescription }
+          role: "user",
+          content: `You are an expert AI assistant for a job search platform. Given a partial search input, suggest up to 7 relevant job titles or skills that are popular, in-demand, or trending. Respond with a comma-separated list only, no extra text.\n\nInput: ${jobDescription}`
+        }
       ];
     } else if (mode === "course") {
       messages = [
         {
-          role: "system",
-          content: `
-Given a skill, reply with:
-Course: [Title] (URL), Provider: [Name], 1-sentence description.
-If no real course, reply: No real course found.
-          `.trim()
-        },
-        { role: "user", content: jobDescription }
+          role: "user",
+          content: `Given a skill, reply with:\nCourse: [Title] (URL), Provider: [Name], 1-sentence description.\nIf no real course, reply: No real course found.\n\nSkill: ${jobDescription}`
+        }
       ];
     } else if (mode === "company_score") {
       messages = [
         {
-          role: "system",
-          content: `
-You are an expert on workplace culture. Given a company name, reply with:
-Score: X/100
-Reason: 1-2 sentences, specific and logical. Use public reputation, reviews, innovation, or tech adoption. If unknown, explain your reasoning.
-          `.trim()
-        },
-        { role: "user", content: jobTitle }
+          role: "user",
+          content: `You are an expert on workplace culture. Given a company name, reply with:\nScore: X/100\nReason: 1-2 sentences, specific and logical. Use public reputation, reviews, innovation, or tech adoption. If unknown, explain your reasoning.\n\nCompany: ${jobTitle}`
+        }
       ];
     } else {
       messages = [
-        { role: "system", content: `
-You are an expert on AI job automation. Given a job title and description, reply with:
-Automatability: X% (0-100)
-Why: 1-2 sentences, specific and concise. If human-centric, say why. If automatable, name the tasks.
-        `.trim() },
-        { role: "user", content: `Job Title: ${jobTitle}\nDescription: ${jobDescription}\nHow automatable is this job? Reply with 'Automatability: X%' and 'Why: ...'` }
+        {
+          role: "user",
+          content: `You are an expert on AI job automation. Given a job title and description, reply with:\nAutomatability: X% (0-100)\nWhy: 1-2 sentences, specific and concise. If human-centric, say why. If automatable, name the tasks.\n\nJob Title: ${jobTitle}\nDescription: ${jobDescription}\nHow automatable is this job? Reply with 'Automatability: X%' and 'Why: ...'`
+        }
       ];
     }
 
