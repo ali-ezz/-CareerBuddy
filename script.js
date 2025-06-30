@@ -117,8 +117,65 @@ class CareerPlatform {
   }
 
   showSearchSuggestions(suggestions) {
-    // Implementation for search suggestions dropdown
-    console.log('Search suggestions:', suggestions);
+    const suggestionsContainer = document.getElementById('search-suggestions');
+    if (!suggestionsContainer) return;
+
+    // Remove old suggestions
+    suggestionsContainer.innerHTML = '';
+    if (!suggestions || suggestions.length === 0) {
+      suggestionsContainer.style.display = 'none';
+      return;
+    }
+
+    // Render new suggestions
+    suggestions.forEach((suggestion, idx) => {
+      const item = document.createElement('div');
+      item.className = 'suggestion-item';
+      item.textContent = suggestion;
+      item.tabIndex = 0;
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        this.selectSuggestion(suggestion);
+      });
+      suggestionsContainer.appendChild(item);
+    });
+    suggestionsContainer.style.display = 'block';
+
+    // Keyboard navigation
+    const mainSearchInput = document.getElementById('main-search');
+    let selectedIdx = -1;
+    mainSearchInput.onkeydown = (e) => {
+      const items = suggestionsContainer.querySelectorAll('.suggestion-item');
+      if (!items.length) return;
+      if (e.key === 'ArrowDown') {
+        selectedIdx = (selectedIdx + 1) % items.length;
+        items.forEach((el, i) => el.classList.toggle('selected', i === selectedIdx));
+        e.preventDefault();
+      } else if (e.key === 'ArrowUp') {
+        selectedIdx = (selectedIdx - 1 + items.length) % items.length;
+        items.forEach((el, i) => el.classList.toggle('selected', i === selectedIdx));
+        e.preventDefault();
+      } else if (e.key === 'Enter' && selectedIdx >= 0) {
+        this.selectSuggestion(items[selectedIdx].textContent);
+        suggestionsContainer.style.display = 'none';
+        e.preventDefault();
+      }
+    };
+
+    // Hide suggestions on blur
+    mainSearchInput.onblur = () => {
+      setTimeout(() => {
+        suggestionsContainer.style.display = 'none';
+      }, 120);
+    };
+  }
+
+  selectSuggestion(suggestion) {
+    const mainSearchInput = document.getElementById('main-search');
+    mainSearchInput.value = suggestion;
+    this.handleSearch();
+    const suggestionsContainer = document.getElementById('search-suggestions');
+    if (suggestionsContainer) suggestionsContainer.style.display = 'none';
   }
 
   async handleSearch() {
