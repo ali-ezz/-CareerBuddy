@@ -13,91 +13,97 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "GROK_API_KEY is not set in environment variables." });
     }
 
-    // Truncate all user input to avoid context overflow
-    // Remove HTML tags and limit length, but allow enough for reasoning
-    function cleanText(str, maxLen) {
-      if (!str) return '';
-      // Remove HTML tags/entities
-      let txt = str.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ');
-      // Collapse whitespace
-      txt = txt.replace(/\s+/g, ' ').trim();
-      // Truncate
-      return txt.slice(0, maxLen);
-    }
-    // If job description is very long, try to extract the most relevant part (first paragraph or first 2-3 bullet points)
-    function extractRelevantText(str, maxLen) {
-      if (!str) return '';
-      // Remove HTML tags/entities
-      let txt = str.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ');
-      // Try to extract first paragraph or first 2-3 bullet points
-      let paraMatch = txt.match(/(.{30,400}?\.)/); // first full sentence
-      let bullets = txt.match(/•\s*([^•\n]{10,120})/g) || txt.match(/-\s*([^-•\n]{10,120})/g);
-      let summary = '';
-      if (bullets && bullets.length > 0) {
-        summary = bullets.slice(0, 3).map(b => b.replace(/^[-•]\s*/, '').trim()).join(' ');
-      } else if (paraMatch) {
-        summary = paraMatch[0];
-      } else {
-        summary = txt.slice(0, maxLen);
-      }
-      // Collapse whitespace
-      summary = summary.replace(/\s+/g, ' ').trim();
-      return summary.slice(0, maxLen);
-    }
-    const safeJobTitle = cleanText(jobTitle, 120);
-    const safeJobDescription = extractRelevantText(jobDescription, 300);
-
     let messages;
     if (mode === "chatbot") {
       messages = [
         {
-          role: "user",
-          content: `Career advice for: ${safeJobDescription}. Reply in 1-2 clear sentences.`
-        }
+          role: "system",
+          content: `
+You are a professional, friendly, and highly knowledgeable AI career coach. 
+- Always respond with specific, actionable, and encouraging advice about jobs, skills, and career growth.
+- If the user shares their interests or goals (e.g. "I want to be a pilot" or "I love programming"), suggest concrete next steps, learning paths, or career options.
+- Ask follow-up questions to help clarify their goals and provide tailored guidance.
+- Never respond with just a number or a generic fallback. Never mention risk scores or AI disruption unless asked directly.
+- If the user is unsure, help them explore their interests and strengths.
+- Be warm, supportive, and concise (max 120 words).
+          `.trim()
+        },
+        { role: "user", content: jobDescription }
       ];
     } else if (mode === "autocomplete") {
       messages = [
         {
-          role: "user",
-          content: `List 5 trending job titles or skills (comma-separated, no numbers, no extra text) for: ${safeJobDescription}`
-        }
+          role: "system",
+          content: `
+You are an expert AI assistant for a job search platform. Given a partial search input, suggest up to 7 relevant job titles or skills that are popular, in-demand, or trending. Respond with a comma-separated list only, no extra text.
+          `.trim()
+        },
+        { role: "user", content: jobDescription }
       ];
     } else if (mode === "course") {
       messages = [
         {
-          role: "user",
-          content: `Best real online course for: ${safeJobDescription}. Reply: [Title] (URL), Provider: [Name], 1-sentence description. Or: No real course found.`
-        }
+          role: "system",
+          content: `
+You are an expert career advisor. Given a skill, search for a real, working online course for learning or improving that skill. Only use major providers (Coursera, edX, Udemy, LinkedIn, etc.) and check that the course is available and not just a landing page. Copy the actual course URL from the provider's catalog. Respond in this format:
+
+[Course Title](URL)  
+Provider: ProviderName  
+Short Description: (1-2 sentences about what the course covers)
+
+If you cannot find a real, working course, respond with: No real course found.
+
+For example, for "SQL" you might return:
+[Databases and SQL for Data Science with Python](https://www.coursera.org/learn/sql-data-science)  
+Provider: Coursera  
+Short Description: Learn SQL basics, querying, and data analysis using real-world datasets.
+
+Do not invent links. Do not use landing pages. Only copy real course URLs.
+          `.trim()
+        },
+        { role: "user", content: jobDescription }
       ];
     } else if (mode === "company_score") {
       messages = [
         {
-          role: "user",
-          content: `Company score (0-100) for: ${safeJobTitle}. Reason (1 clear sentence, not just a number):`
-        }
+          role: "system",
+          content: `
+You are an expert on workplace culture and employee satisfaction. Given a company name, estimate its employee satisfaction or success rate as a score out of 100, based on public reputation, reviews, innovation, AI adoption, and work environment. Respond in this format:
+
+Score: XX/100
+
+Top reasons:
+- Reason 1 (e.g. "Strong reputation for innovation and employee growth")
+- Reason 2 (e.g. "Positive employee reviews on Glassdoor")
+- Reason 3 (optional, e.g. "Invests in AI and future skills")
+
+Be concise and specific. Do not invent data, but use plausible reasoning based on the company's public image. If you cannot estimate a score, respond with: Score: 70/100
+
+Example:
+Score: 85/100
+
+Top reasons:
+- Strong reputation for innovation and employee growth
+- Positive employee reviews on Glassdoor
+- Invests in AI and future skills
+          `.trim()
+        },
+        { role: "user", content: jobTitle }
       ];
     } else {
       messages = [
-        {
-          role: "user",
-          content: `Job: ${safeJobTitle}\nDescription: ${safeJobDescription}\nReply with:\nAI Safety Score (0-100):\nAutomatability (0-100%):\nWhy (1-2 clear, logical sentences):`
-        }
+        { role: "system", content: "You are an expert on the future of work and AI automation." },
+        { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond with a short risk summary, a percentage breakdown (e.g. '70% automatable, 30% human oversight'), and a score from 0 (very at risk) to 100 (very safe). Be concise and clear.` }
       ];
     }
 
-    // Ensure apiKey is defined in this scope
-    const groqApiKey = apiKey;
-    const groq = new Groq({ apiKey: groqApiKey });
+    const groq = new Groq({ apiKey });
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "meta-llama/llama-prompt-guard-2-22m",
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
       temperature: 0.2,
-      max_completion_tokens: 
-        mode === "company_score" ? 40 :
-        mode === "chatbot" ? 40 :
-        mode === "course" ? 40 :
-        60,
+      max_completion_tokens: 300,
       top_p: 1,
       stream: false,
       stop: null
@@ -157,20 +163,6 @@ Top reasons:
     console.error("Request body:", req.body);
     console.error("GROK_API_KEY present:", !!process.env.GROK_API_KEY, "apiKey starts with:", apiKey ? apiKey.slice(0, 6) : "undefined");
     console.error("Error stack:", err.stack);
-
-    // Handle Groq token rate limit error
-    if (err && err.response && err.response.data && err.response.data.error && err.response.data.error.code === "rate_limit_exceeded") {
-      const waitMsg = err.response.data.error.message || "Grok AI rate limit reached. Please try again later.";
-      res.status(429).json({ error: "rate_limit", message: waitMsg });
-      return;
-    }
-    // Handle new Groq error format (from feedback)
-    if (err && err.error && err.error.code === "rate_limit_exceeded") {
-      const waitMsg = err.error.message || "Grok AI rate limit reached. Please try again later.";
-      res.status(429).json({ error: "rate_limit", message: waitMsg });
-      return;
-    }
-
     res.status(500).json({ error: "Grok API error", details: err.message });
   }
 }
