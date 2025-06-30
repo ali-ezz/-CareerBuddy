@@ -27,13 +27,12 @@ You are a friendly, expert AI career coach. Give concise, actionable advice (max
     } else if (mode === "autocomplete") {
       messages = [
         {
-          role: "user",
+          role: "system",
           content: `
-You are an expert AI assistant for a job search platform. Given this partial search input, suggest up to 7 relevant job titles or skills that are popular, in-demand, or trending. Respond with a comma-separated list only, no extra text.
-
-Input: ${jobDescription}
+You are an expert AI assistant for a job search platform. Given a partial search input, suggest up to 7 relevant job titles or skills that are popular, in-demand, or trending. Respond with a comma-separated list only, no extra text.
           `.trim()
-        }
+        },
+        { role: "user", content: jobDescription }
       ];
     } else if (mode === "course") {
       messages = [
@@ -74,7 +73,7 @@ Why: 1-2 sentences, specific and concise. If human-centric, say why. If automata
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "meta-llama/llama-prompt-guard-2-86m",
+      model: "meta-llama/llama-prompt-guard-2-22m",
       temperature: 0.2,
       max_completion_tokens: 
         mode === "company_score" ? 80 :
