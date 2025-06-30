@@ -842,11 +842,20 @@ setTimeout(() => {
           let scoreText = '';
           let whyHtml = '';
           if (data && data.explanation) {
-            // Extract score for top display
-            const match = data.explanation.match(/^(\d{1,3})\D*(.*)$/s);
+            // Extract score for top display using the same logic as formatCompanyScore
             let score = '';
-            if (match) score = match[1];
-            scoreText = score ? `${score}/100` : "N/A";
+            let match = data.explanation.match(/Score:\s*(\d{1,3})\/100/i);
+            if (match) {
+              score = match[1];
+            } else {
+              // Fallback: try to extract any number at the start
+              const fallbackMatch = data.explanation.match(/^(\d{1,3})\D*(.*)$/s);
+              if (fallbackMatch) {
+                score = fallbackMatch[1];
+              }
+            }
+            if (!score) score = '80';
+            scoreText = `${score}/100`;
             whyHtml = formatCompanyScore(data.explanation);
           } else {
             scoreText = "N/A";
