@@ -65,10 +65,13 @@ export default async function handler(req, res) {
     }
 
     // --- Model switching ---
-    let model = "llama-3.3-70b-versatile";
-    if (mode === "autocomplete" || mode === "course") {
-      model = "llama-3.3-8b-8192"; // Use smaller model for autocomplete/courses if available
-    }
+    // Use new Groq model naming (update as needed)
+    let model = "meta-llama/llama-4-scout-17b-16e-instruct";
+    // You can switch models here if you want different ones for autocomplete/course/chatbot
+    // For example:
+    // if (mode === "autocomplete" || mode === "course") {
+    //   model = "meta-llama/llama-4-scout-17b-16e-instruct";
+    // }
 
     // --- In-memory cache check ---
     const cacheKey = makeCacheKey({ jobTitle, jobDescription, mode });
