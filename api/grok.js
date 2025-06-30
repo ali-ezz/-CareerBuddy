@@ -24,43 +24,43 @@ export default async function handler(req, res) {
       // Truncate
       return txt.slice(0, maxLen);
     }
-    const safeJobTitle = cleanText(jobTitle, 200);
-    const safeJobDescription = cleanText(jobDescription, 600);
+    const safeJobTitle = cleanText(jobTitle, 120);
+    const safeJobDescription = cleanText(jobDescription, 300);
 
     let messages;
     if (mode === "chatbot") {
       messages = [
         {
           role: "user",
-          content: `You are an expert career coach. Give concise, actionable advice (max 2 sentences) for this user: ${safeJobDescription}`
+          content: `Career advice for: ${safeJobDescription}. Reply in 1-2 clear sentences.`
         }
       ];
     } else if (mode === "autocomplete") {
       messages = [
         {
           role: "user",
-          content: `Suggest 5 trending job titles or skills (comma-separated, no numbers, no extra text) related to: ${safeJobDescription}`
+          content: `List 5 trending job titles or skills (comma-separated, no numbers, no extra text) for: ${safeJobDescription}`
         }
       ];
     } else if (mode === "course") {
       messages = [
         {
           role: "user",
-          content: `List a real online course for the skill: ${safeJobDescription}. Reply: Course: [Title] (URL), Provider: [Name], 1-sentence description. Or: No real course found.`
+          content: `Best real online course for: ${safeJobDescription}. Reply: [Title] (URL), Provider: [Name], 1-sentence description. Or: No real course found.`
         }
       ];
     } else if (mode === "company_score") {
       messages = [
         {
           role: "user",
-          content: `Estimate a company score (0-100) for: ${safeJobTitle}. Give a specific reason (1 sentence, not just a number).`
+          content: `Company score (0-100) for: ${safeJobTitle}. Reason (1 clear sentence, not just a number):`
         }
       ];
     } else {
       messages = [
         {
           role: "user",
-          content: `For the job "${safeJobTitle}":\n1. AI Safety Score (0-100): How safe is this job from AI replacement?\n2. Automatability (0-100%): What percent of tasks can be automated?\n3. Why: 1-2 sentences, specific and logical, referencing the job description: ${safeJobDescription}`
+          content: `Job: ${safeJobTitle}\nDescription: ${safeJobDescription}\nReply with:\nAI Safety Score (0-100):\nAutomatability (0-100%):\nWhy (1-2 clear, logical sentences):`
         }
       ];
     }
