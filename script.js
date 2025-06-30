@@ -91,7 +91,40 @@ class CareerPlatform {
     }
   }
 
-  async handleSearchSuggestions(query) {
+  // Debounce utility
+  debounce(fn, delay) {
+    let timer = null;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => fn.apply(this, args), delay);
+    };
+  }
+
+  constructor() {
+    // ...existing constructor code...
+    this.handleSearchSuggestions = this.debounce(this._handleSearchSuggestions.bind(this), 400);
+    // ...rest of constructor...
+    this.jobs = [];
+    this.filteredJobs = [];
+    this.userPreferences = JSON.parse(localStorage.getItem('userPreferences') || '{}');
+    this.currentPage = 1;
+    this.jobsPerPage = 12;
+    this.isLoading = false;
+    this.searchQuery = '';
+    this.filters = {
+      location: '',
+      experience: '',
+      salary: '',
+      sort: 'relevance',
+      remote: false,
+      skills: []
+    };
+    this.aiAssistant = new AIAssistant();
+    this.analytics = new PlatformAnalytics();
+    this.init();
+  }
+
+  async _handleSearchSuggestions(query) {
     if (query.length < 2) {
       this.showSearchSuggestions([]);
       return;
@@ -566,20 +599,41 @@ class CareerPlatform {
     }
   }
 
+  // --- Simple localStorage cache utility ---
+  cacheGet(key, maxAgeMs = 24 * 60 * 60 * 1000) {
+    try {
+      const item = localStorage.getItem(key);
+      if (!item) return null;
+      const { value, ts } = JSON.parse(item);
+      if (Date.now() - ts > maxAgeMs) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      return value;
+    } catch (e) {
+      return null;
+    }
+  }
+  cacheSet(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify({ value, ts: Date.now() }));
+    } catch (e) {}
+  }
+
   async fetchJobAIScore(job, retryCount = 0) {
-const maxRetries = 7;
-const retryDelay = 5000;
+    const maxRetries = 7;
+    const retryDelay = 5000;
+    const cacheKey = `aiScore:${job.title}|${job.company_name}|${(job.description||'').slice(0,100)}`;
+    const cached = this.cacheGet(cacheKey);
+    if (cached) {
+      job.aiScore = cached.aiScore;
+      job.aiExplanation = cached.aiExplanation;
+      this.updateJobAIScore(job.id, job.aiScore);
+      return;
+    }
 
     try {
-      console.log("Sending request to Grok API:", {
-  jobTitle: job.title,
-  jobDescription: job.description || job.title
-});
-console.log("Attempting to send request to Grok API with payload:", {
-  jobTitle: job.title,
-  jobDescription: job.description || job.title
-});
-const response = await fetch('/api/grok', {
+      const response = await fetch('/api/grok', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -605,9 +659,9 @@ const response = await fetch('/api/grok', {
         } catch (e) {}
         if (isRateLimit && retryCount < maxRetries) {
           this.showAIRateLimitReminder(friendlyMessage);
-setTimeout(() => {
-  this.fetchJobAIScore(job, retryCount + 1);
-}, retryDelay * Math.pow(2, retryCount));
+          setTimeout(() => {
+            this.fetchJobAIScore(job, retryCount + 1);
+          }, retryDelay * Math.pow(2, retryCount));
           return;
         } else {
           this.showAIRateLimitReminder(friendlyMessage);
@@ -634,10 +688,12 @@ setTimeout(() => {
       if (score !== null && score >= 0 && score <= 100) {
         job.aiScore = score;
         this.updateJobAIScore(job.id, score);
+        this.cacheSet(cacheKey, { aiScore: score, aiExplanation: job.aiExplanation });
       } else {
         job.aiScore = this.getFallbackAIScore(job);
         this.showError(`AI score could not be fetched for job: ${job.title}. Please try again later.`);
         this.updateJobAIScore(job.id, job.aiScore);
+        this.cacheSet(cacheKey, { aiScore: job.aiScore, aiExplanation: job.aiExplanation });
       }
 
     } catch (error) {
@@ -650,6 +706,7 @@ setTimeout(() => {
       } else {
         job.aiScore = this.getFallbackAIScore(job);
         this.updateJobAIScore(job.id, job.aiScore);
+        this.cacheSet(cacheKey, { aiScore: job.aiScore, aiExplanation: job.aiExplanation });
       }
     }
   }
@@ -893,30 +950,34 @@ setTimeout(() => {
     // Fetch company score asynchronously and update explanation section (always show, even if N/A)
     if (job.company_name) {
       setTimeout(async () => {
-        try {
-          const resp = await fetch('/api/grok', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jobTitle: job.company_name,
-              jobDescription: "",
-              mode: "company_score"
-            })
-          });
-          const data = await resp.json();
-          let whyHtml = '';
-          if (data && data.explanation) {
-            whyHtml = formatCompanyScore(data.explanation);
-          } else {
-            whyHtml = `<div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Company Score: N/A</div><div style="font-size:0.98em;color:#444;">No company score available.</div>`;
+        const cacheKey = `companyScore:${job.company_name}`;
+        let data = careerPlatform.cacheGet(cacheKey);
+        if (!data) {
+          try {
+            const resp = await fetch('/api/grok', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jobTitle: job.company_name,
+                jobDescription: "",
+                mode: "company_score"
+              })
+            });
+            data = await resp.json();
+            careerPlatform.cacheSet(cacheKey, data);
+          } catch (e) {
+            data = null;
           }
-          // Update why section
-          const whyBox = document.getElementById('company-why-score-content');
-          if (whyBox) whyBox.innerHTML = whyHtml;
-        } catch (e) {
-          const whyBox = document.getElementById('company-why-score-content');
-          if (whyBox) whyBox.innerHTML = `<div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Company Score: N/A</div><div style="font-size:0.98em;color:#444;">No company score available.</div>`;
         }
+        let whyHtml = '';
+        if (data && data.explanation) {
+          whyHtml = formatCompanyScore(data.explanation);
+        } else {
+          whyHtml = `<div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Company Score: N/A</div><div style="font-size:0.98em;color:#444;">No company score available.</div>`;
+        }
+        // Update why section
+        const whyBox = document.getElementById('company-why-score-content');
+        if (whyBox) whyBox.innerHTML = whyHtml;
       }, 100);
     }
 
@@ -930,50 +991,53 @@ setTimeout(() => {
         if (ul) {
           ul.innerHTML = '';
           job.skills.forEach(async (skill) => {
-            // Fetch course info from Groq AI
-            try {
-              const resp = await fetch('/api/grok', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  jobTitle: "",
-                  jobDescription: skill,
-                  mode: "course"
-                })
-              });
-              const data = await resp.json();
-              let courseText = '';
-              if (data && data.explanation && data.explanation.trim() && !data.explanation.includes('No real course found')) {
-                // Extract course title and provider from the explanation (ignore URL)
-                // Example format:
-                // [Course Title](URL)
-                // Provider: ProviderName
-                // Short Description: ...
-                let title = '';
-                let provider = '';
-                let desc = '';
-                // Extract title
-                const titleMatch = data.explanation.match(/\[([^\]]+)\]\([^)]+\)/);
-                if (titleMatch) title = titleMatch[1];
-                // Extract provider
-                const providerMatch = data.explanation.match(/Provider:\s*([^\n]+)/i);
-                if (providerMatch) provider = providerMatch[1];
-                // Extract description
-                const descMatch = data.explanation.match(/Short Description:\s*([^\n]+)/i);
-                if (descMatch) desc = descMatch[1];
-                // Compose plain text
-                courseText = `${title ? title : skill}${provider ? " (" + provider + ")" : ""}${desc ? ": " + desc : ""}`;
-              } else {
-                courseText = "No recommended course yet.";
+            // Check cache for course info
+            const cacheKey = `course:${skill.toLowerCase()}`;
+            let data = careerPlatform.cacheGet(cacheKey);
+            if (!data) {
+              try {
+                const resp = await fetch('/api/grok', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    jobTitle: "",
+                    jobDescription: skill,
+                    mode: "course"
+                  })
+                });
+                data = await resp.json();
+                careerPlatform.cacheSet(cacheKey, data);
+              } catch (e) {
+                data = null;
               }
-              const li = document.createElement('li');
-              li.textContent = `${skill}: ${courseText}`;
-              ul.appendChild(li);
-            } catch (e) {
-              const li = document.createElement('li');
-              li.textContent = `${skill}: No recommended course yet.`;
-              ul.appendChild(li);
             }
+            let courseText = '';
+            if (data && data.explanation && data.explanation.trim() && !data.explanation.includes('No real course found')) {
+              // Extract course title and provider from the explanation (ignore URL)
+              // Example format:
+              // [Course Title](URL)
+              // Provider: ProviderName
+              // Short Description: ...
+              let title = '';
+              let provider = '';
+              let desc = '';
+              // Extract title
+              const titleMatch = data.explanation.match(/\[([^\]]+)\]\([^)]+\)/);
+              if (titleMatch) title = titleMatch[1];
+              // Extract provider
+              const providerMatch = data.explanation.match(/Provider:\s*([^\n]+)/i);
+              if (providerMatch) provider = providerMatch[1];
+              // Extract description
+              const descMatch = data.explanation.match(/Short Description:\s*([^\n]+)/i);
+              if (descMatch) desc = descMatch[1];
+              // Compose plain text
+              courseText = `${title ? title : skill}${provider ? " (" + provider + ")" : ""}${desc ? ": " + desc : ""}`;
+            } else {
+              courseText = "No recommended course yet.";
+            }
+            const li = document.createElement('li');
+            li.textContent = `${skill}: ${courseText}`;
+            ul.appendChild(li);
           });
         }
       }, 100);

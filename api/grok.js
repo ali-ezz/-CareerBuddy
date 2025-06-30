@@ -99,11 +99,12 @@ Top reasons:
 
     const groq = new Groq({ apiKey });
 
+    // Reduce max_completion_tokens for all calls (token optimization)
     const chatCompletion = await groq.chat.completions.create({
       messages,
       model: "llama-3.3-70b-versatile",
       temperature: 0.2,
-      max_completion_tokens: 300,
+      max_completion_tokens: 120, // was 300, now 120 for token savings
       top_p: 1,
       stream: false,
       stop: null
