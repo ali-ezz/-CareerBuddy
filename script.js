@@ -788,6 +788,16 @@ setTimeout(() => {
         .replace(/^\s*\*\*\s*$/gm, '')
         .replace(/^\s*$/gm, '');
 
+      // If the explanation contains "score it as XX out of 100", use that as the AI Safety Score if higher
+      let aiScoreFromText = null;
+      const scoreTextMatch = cleaned.match(/score (it )?as (\d{1,3}) out of 100/i);
+      if (scoreTextMatch) {
+        aiScoreFromText = parseInt(scoreTextMatch[2]);
+        if (!isNaN(aiScoreFromText) && (typeof aiScore !== 'number' || aiScoreFromText > aiScore)) {
+          aiScore = aiScoreFromText;
+        }
+      }
+
       // Extract breakdowns like "70% automatable, 30% human oversight"
       let breakdown = '';
       let bullets = [];
@@ -807,10 +817,13 @@ setTimeout(() => {
         const sentMatches = cleaned.match(/([^.?!]*?(requires|demands|necessary|needed)[^.?!]*[.?!])/gi);
         if (sentMatches) bullets = sentMatches.map(s => s.trim());
       }
-      // Fallback: take first 2-4 sentences
+      // Fallback: take first 2-3 sentences
       if (bullets.length === 0) {
-        bullets = cleaned.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 4);
+        bullets = cleaned.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
       }
+
+      // Only keep the top 2 reasons for minimal output
+      bullets = bullets.slice(0, 2);
 
       // Compose two sections: AI Safety Score and Automatability
       return `
@@ -818,7 +831,7 @@ setTimeout(() => {
         ${bullets.length > 0 ? `
         <div style="font-weight:600;color:#222;margin-bottom:2px;">Why?</div>
         <ul style="margin:0 0 12px 18px;padding:0 0 0 0.5em;">
-          ${bullets.slice(0, 4).map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
+          ${bullets.map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
         </ul>
         ` : ''}
         ${breakdown ? `
@@ -852,7 +865,7 @@ setTimeout(() => {
       }
       // If still no score, fallback to 80
       if (!score) score = '80';
-      // Try to extract up to 3 concise reasons
+      // Try to extract up to 2 concise reasons
       let bullets = [];
       if (justification) {
         const bulletMatches = justification.match(/(?:-|\d+\.)\s*([^\n*•]+?)(?=\n|$|-|\d+\.)/g);
@@ -860,25 +873,26 @@ setTimeout(() => {
           bullets = bulletMatches.map(b => b.replace(/^-|\d+\./, '').trim()).filter(Boolean);
         }
         if (bullets.length === 0) {
-          bullets = justification.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
+          bullets = justification.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 2);
         }
       }
       return `
-        <div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Why this company score?</div>
+        <div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Company Score: ${score}/100</div>
+        ${bullets.length > 0 ? `
+        <div style="font-weight:600;color:#222;margin-bottom:2px;">Why?</div>
         <ul style="margin:0 0 0 18px;padding:0 0 0 0.5em;">
-          ${bullets.slice(0, 3).map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
+          ${bullets.map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
         </ul>
+        ` : ''}
       `;
     }
 
     // Prepare placeholders for company score and explanation
-    let companyScoreValue = '<span id="company-score-value"><em>Loading...</em></span>';
     let companyWhyHtml = `<div class="ai-explanation" id="company-why-score-section" style="margin-top:18px;"><span class="ai-explanation-icon">🏢</span><div class="ai-explanation-content" id="company-why-score-content"><em>Loading company score explanation...</em></div></div>`;
 
-    // Fetch company score asynchronously and update both value and explanation
+    // Fetch company score asynchronously and update explanation section (always show, even if N/A)
     if (job.company_name) {
       setTimeout(async () => {
-        // Fetch company score/explanation
         try {
           const resp = await fetch('/api/grok', {
             method: 'POST',
@@ -890,39 +904,18 @@ setTimeout(() => {
             })
           });
           const data = await resp.json();
-          let scoreText = '';
           let whyHtml = '';
           if (data && data.explanation) {
-            // Extract score for top display using the same logic as formatCompanyScore
-            let score = '';
-            let match = data.explanation.match(/Score:\s*(\d{1,3})\/100/i);
-            if (match) {
-              score = match[1];
-            } else {
-              // Fallback: try to extract any number at the start
-              const fallbackMatch = data.explanation.match(/^(\d{1,3})\D*(.*)$/s);
-              if (fallbackMatch) {
-                score = fallbackMatch[1];
-              }
-            }
-            if (!score) score = '80';
-            scoreText = `${score}/100`;
             whyHtml = formatCompanyScore(data.explanation);
           } else {
-            scoreText = "N/A";
-            whyHtml = "<em>N/A</em>";
+            whyHtml = `<div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Company Score: N/A</div><div style="font-size:0.98em;color:#444;">No company score available.</div>`;
           }
-          // Update score at top
-          const scoreBox = document.getElementById('company-score-value');
-          if (scoreBox) scoreBox.innerHTML = scoreText;
           // Update why section
           const whyBox = document.getElementById('company-why-score-content');
           if (whyBox) whyBox.innerHTML = whyHtml;
         } catch (e) {
-          const scoreBox = document.getElementById('company-score-value');
-          if (scoreBox) scoreBox.innerHTML = "N/A";
           const whyBox = document.getElementById('company-why-score-content');
-          if (whyBox) whyBox.innerHTML = "<em>N/A</em>";
+          if (whyBox) whyBox.innerHTML = `<div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Company Score: N/A</div><div style="font-size:0.98em;color:#444;">No company score available.</div>`;
         }
       }, 100);
     }
