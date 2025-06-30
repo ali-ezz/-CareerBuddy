@@ -68,30 +68,9 @@ Do not invent links. Do not use landing pages. Only copy real course URLs.
         {
           role: "system",
           content: `
-You are an expert on workplace culture and employee satisfaction.
-Given a company name, estimate its employee satisfaction or success rate as a score out of 100, based on public reputation, reviews, innovation, AI adoption, and work environment.
-- Always provide a rational, evidence-based explanation for your score.
-- If you give a high or low score, justify it with specific, logical reasons (not generic).
-- If the company is not well-known, explain your reasoning based on available signals (e.g., industry, size, tech adoption).
-- If your explanation and score do not match, double-check and revise.
-Respond in this format:
-
-Score: XX/100
-
-Top reasons:
-- Reason 1 (e.g. "Strong reputation for innovation and employee growth")
-- Reason 2 (e.g. "Positive employee reviews on Glassdoor")
-- Reason 3 (optional, e.g. "Invests in AI and future skills")
-
-Be concise, specific, and logical. Do not invent data, but use plausible reasoning based on the company's public image. If you cannot estimate a score, respond with: Score: 70/100
-
-Example:
-Score: 85/100
-
-Top reasons:
-- Strong reputation for innovation and employee growth
-- Positive employee reviews on Glassdoor
-- Invests in AI and future skills
+You are an expert on workplace culture. Given a company name, reply with:
+Score: X/100
+Reason: 1-2 sentences, specific and logical. Use public reputation, reviews, innovation, or tech adoption. If unknown, explain your reasoning.
           `.trim()
         },
         { role: "user", content: jobTitle }
@@ -99,15 +78,11 @@ Top reasons:
     } else {
       messages = [
         { role: "system", content: `
-You are an expert on AI job automation.
-Given a job title and description, reply with:
-1. Automatability: X% (0-100)
-2. 1-2 sentences: Why this score? (Be specific, concise, and logical. If the job is mostly human-centric, explain why. If mostly automatable, specify which tasks.)
-Example:
-Automatability: 40%
-Why: Requires human judgment for interviews and strategy, but routine reporting can be automated.
+You are an expert on AI job automation. Given a job title and description, reply with:
+Automatability: X% (0-100)
+Why: 1-2 sentences, specific and concise. If human-centric, say why. If automatable, name the tasks.
         `.trim() },
-        { role: "user", content: `Job Title: ${jobTitle}\nDescription: ${jobDescription}\nHow automatable is this job? Reply as in the example above.` }
+        { role: "user", content: `Job Title: ${jobTitle}\nDescription: ${jobDescription}\nHow automatable is this job? Reply with 'Automatability: X%' and 'Why: ...'` }
       ];
     }
 
@@ -115,9 +90,9 @@ Why: Requires human judgment for interviews and strategy, but routine reporting 
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "meta-llama/llama-prompt-guard-2-22m",
+      model: "compound-beta-mini",
       temperature: 0.2,
-      max_completion_tokens: 120,
+      max_completion_tokens: mode === "company_score" ? 80 : 120,
       top_p: 1,
       stream: false,
       stop: null
