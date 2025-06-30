@@ -99,17 +99,15 @@ Top reasons:
     } else {
       messages = [
         { role: "system", content: `
-You are an expert on the future of work and AI automation.
-Your job is to analyze a job's true risk of AI automation and provide a rational, context-aware score and explanation.
-- Carefully consider if the job requires human judgment, creativity, empathy, or strategic thinking.
-- If the job is mostly automatable, explain exactly which tasks are at risk and which are not.
-- If the job is mostly human-centric, explain why AI cannot easily replace it.
-- Give a percentage breakdown (e.g. '70% automatable, 30% human oversight') and a score from 0 (very at risk) to 100 (very safe).
-- If you give a low score, double-check your reasoning and make sure your explanation matches the score. If not, revise your score or explanation.
-- Always provide a clear, concise, and rational explanation for your score.
-- Never give a generic answer. Always be specific to the job.
+You are an expert on AI job automation.
+Given a job title and description, reply with:
+1. Automatability: X% (0-100)
+2. 1-2 sentences: Why this score? (Be specific, concise, and logical. If the job is mostly human-centric, explain why. If mostly automatable, specify which tasks.)
+Example:
+Automatability: 40%
+Why: Requires human judgment for interviews and strategy, but routine reporting can be automated.
         `.trim() },
-        { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond with a short risk summary, a percentage breakdown (e.g. '70% automatable, 30% human oversight'), and a score from 0 (very at risk) to 100 (very safe). Be concise and clear.` }
+        { role: "user", content: `Job Title: ${jobTitle}\nDescription: ${jobDescription}\nHow automatable is this job? Reply as in the example above.` }
       ];
     }
 
@@ -117,9 +115,9 @@ Your job is to analyze a job's true risk of AI automation and provide a rational
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "deepseek-r1-distill-llama-70b",
+      model: "meta-llama/llama-prompt-guard-2-22m",
       temperature: 0.2,
-      max_completion_tokens: 300,
+      max_completion_tokens: 120,
       top_p: 1,
       stream: false,
       stop: null
