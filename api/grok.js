@@ -102,14 +102,22 @@ Top reasons:
 
     // --- Reduce token usage for all calls ---
     let maxTokens = 100;
-    if (mode === "risk" || mode === "company_score") maxTokens = 60;
+    let temperature = 0.2;
+    if (mode === "risk" || mode === "company_score") {
+      maxTokens = 80;
+      temperature = 0.5; // More variety for these modes
+    }
+    if (mode === "risk_full") {
+      maxTokens = 120;
+      temperature = 0.5; // More variety and detail for risk_full
+    }
     if (mode === "course") maxTokens = 80;
     if (mode === "chatbot") maxTokens = 120;
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
       model: "meta-llama/llama-4-scout-17b-16e-instruct",
-      temperature: 0.2,
+      temperature,
       max_completion_tokens: maxTokens,
       top_p: 1,
       stream: false,

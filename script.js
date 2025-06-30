@@ -718,6 +718,10 @@ class CareerPlatform {
   getFallbackAIScore(job) {
     const title = job.title.toLowerCase();
     const description = (job.description || '').toLowerCase();
+    const skills = (job.skills || []).map(s => s.toLowerCase());
+    const salary = job.salaryRange ? (job.salaryRange.min + job.salaryRange.max) / 2 : null;
+    const experience = job.experienceLevel ? job.experienceLevel.toLowerCase() : '';
+    const industry = job.company_name ? job.company_name.toLowerCase() : '';
 
     // Improved logic: boost score if creative, strategic, or human-centric terms are present
     const highSafetyKeywords = [
@@ -733,6 +737,28 @@ class CareerPlatform {
 
     let score = 50;
 
+    // Add more variety based on job features
+    // 1. Salary: higher salary = higher safety
+    if (salary) {
+      if (salary > 120000) score += 10;
+      else if (salary > 80000) score += 5;
+      else if (salary < 40000) score -= 8;
+    }
+
+    // 2. Experience level: executive/senior = higher safety, entry = lower
+    if (experience.includes('executive') || experience.includes('senior') || experience.includes('lead') || experience.includes('principal')) score += 7;
+    if (experience.includes('entry') || experience.includes('junior') || experience.includes('intern')) score -= 7;
+
+    // 3. Industry/company: tech/creative/consulting = higher safety, manufacturing/admin = lower
+    if (/tech|software|creative|consult|design|ai|cloud|data|finance|research/.test(industry)) score += 5;
+    if (/manufactur|admin|clerical|support|call center|processing|logistics/.test(industry)) score -= 5;
+
+    // 4. Skills: more "soft" skills = higher safety
+    const softSkills = ['communication', 'leadership', 'problem solving', 'critical thinking', 'collaboration', 'creativity', 'strategy', 'innovation'];
+    const softSkillCount = skills.filter(s => softSkills.includes(s)).length;
+    score += softSkillCount * 2;
+
+    // 5. Keyword logic (original)
     for (const keyword of highSafetyKeywords) {
       if (title.includes(keyword) || description.includes(keyword)) {
         score = Math.max(score, 80 + Math.floor(Math.random() * 15));
@@ -763,7 +789,10 @@ class CareerPlatform {
       score = Math.max(score, 85 + Math.floor(Math.random() * 10));
     }
 
-    return Math.min(Math.max(score, 30), 98);
+    // Add a little randomness for variety, but keep within bounds
+    score += Math.floor(Math.random() * 7) - 3; // -3 to +3
+
+    return Math.min(Math.max(Math.round(score), 30), 98);
   }
 
   updateJobAIScore(jobId, score) {
@@ -935,7 +964,7 @@ class CareerPlatform {
       }
       // If still no score, fallback to 80
       if (!score) score = '80';
-      // Try to extract up to 2 concise reasons
+      // Try to extract up to 5 concise reasons for more detail
       let bullets = [];
       if (justification) {
         const bulletMatches = justification.match(/(?:-|\d+\.)\s*([^\n*•]+?)(?=\n|$|-|\d+\.)/g);
@@ -943,7 +972,7 @@ class CareerPlatform {
           bullets = bulletMatches.map(b => b.replace(/^-|\d+\./, '').trim()).filter(Boolean);
         }
         if (bullets.length === 0) {
-          bullets = justification.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 2);
+          bullets = justification.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 5);
         }
       }
       return `
@@ -953,7 +982,7 @@ class CareerPlatform {
         <ul style="margin:0 0 0 18px;padding:0 0 0 0.5em;">
           ${bullets.map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
         </ul>
-        ` : ''}
+        ` : '<div style="color:#888;">No detailed explanation available. Try asking the AI Coach for more insights.</div>'}
       `;
     }
 
