@@ -27,12 +27,13 @@ You are a friendly, expert AI career coach. Give concise, actionable advice (max
     } else if (mode === "autocomplete") {
       messages = [
         {
-          role: "system",
+          role: "user",
           content: `
-You are an expert AI assistant for a job search platform. Given a partial search input, suggest up to 7 relevant job titles or skills that are popular, in-demand, or trending. Respond with a comma-separated list only, no extra text.
+You are an expert AI assistant for a job search platform. Given this partial search input, suggest up to 7 relevant job titles or skills that are popular, in-demand, or trending. Respond with a comma-separated list only, no extra text.
+
+Input: ${jobDescription}
           `.trim()
-        },
-        { role: "user", content: jobDescription }
+        }
       ];
     } else if (mode === "course") {
       messages = [
