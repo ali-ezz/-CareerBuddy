@@ -26,41 +26,25 @@ export default async function handler(req, res) {
     }
 
     let messages;
+    // For text classification models, only a single user message is allowed.
     if (mode === "chatbot") {
       messages = [
-        {
-          role: "system",
-          content: `You are a concise, friendly AI career coach. Give actionable advice about jobs, skills, and career growth in under 50 words.`.trim()
-        },
         { role: "user", content: cleanAndTruncate(jobDescription, 300) }
       ];
     } else if (mode === "autocomplete") {
       messages = [
-        {
-          role: "system",
-          content: `Suggest up to 5 trending job titles or skills as a comma-separated list. No extra text.`.trim()
-        },
         { role: "user", content: cleanAndTruncate(jobDescription, 40) }
       ];
     } else if (mode === "course") {
       messages = [
-        {
-          role: "system",
-          content: `Given a skill, return a real online course (Coursera, edX, Udemy, LinkedIn, etc.) in this format: [Course Title](URL) Provider: ProviderName Short Description: (1 sentence). If none, say: No real course found.`.trim()
-        },
         { role: "user", content: cleanAndTruncate(jobDescription, 30) }
       ];
     } else if (mode === "company_score") {
       messages = [
-        {
-          role: "system",
-          content: `Given a company name, estimate employee satisfaction as Score: XX/100 and 1-2 short reasons. If unsure, Score: 70/100.`.trim()
-        },
         { role: "user", content: cleanAndTruncate(jobTitle, 20) }
       ];
     } else {
       messages = [
-        { role: "system", content: "You are an expert on the future of work and AI automation. Respond concisely." },
         { role: "user", content: `Analyze this job: ${cleanAndTruncate(jobTitle, 20)}. Description: ${cleanAndTruncate(jobDescription, 300)}. How safe is it from AI disruption? Give a short risk summary, a percentage breakdown (e.g. '70% automatable'), and a score from 0-100.` }
       ];
     }
