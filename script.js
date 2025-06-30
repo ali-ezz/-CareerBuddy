@@ -681,59 +681,54 @@ setTimeout(() => {
   }
 
   getFallbackAIScore(job) {
-    // Intelligent, rational scoring based on job content and explanation
     const title = job.title.toLowerCase();
     const description = (job.description || '').toLowerCase();
-    const explanation = (job.aiExplanation || '').toLowerCase();
 
-    // Task weights
-    let creative = 0, strategic = 0, routine = 0, technical = 0, interpersonal = 0;
+    // Improved logic: boost score if creative, strategic, or human-centric terms are present
+    const highSafetyKeywords = [
+      'software', 'developer', 'engineer', 'designer', 'creative', 'strategy', 'manager', 'architect', 'lead', 'senior', 'principal', 'ai', 'machine learning', 'data scientist',
+      'finance', 'accounting', 'procurement', 'storytelling', 'narrative', 'innovation', 'collaboration', 'human', 'oversight', 'communication', 'leadership', 'problem solving', 'critical thinking'
+    ];
+    const mediumSafetyKeywords = [
+      'analyst', 'consultant', 'specialist', 'coordinator', 'officer', 'advisor', 'support', 'marketing', 'sales', 'content', 'media'
+    ];
+    const lowerSafetyKeywords = [
+      'clerk', 'assistant', 'operator', 'entry', 'junior', 'data entry', 'routine', 'repetitive', 'processing'
+    ];
 
-    // Keywords for each category
-    const creativeWords = ['creative', 'storytelling', 'brand', 'editorial', 'design', 'visual', 'engagement', 'content lead', 'innovation', 'narrative'];
-    const strategicWords = ['strategy', 'strategic', 'manager', 'director', 'leadership', 'problem solving', 'critical thinking', 'consultant', 'specialist', 'scientist', 'research'];
-    const routineWords = ['routine', 'data entry', 'processing', 'repetitive', 'clerk', 'assistant', 'operator', 'support'];
-    const technicalWords = ['engineer', 'developer', 'ai', 'machine learning', 'finance', 'accounting', 'procurement', 'analyst', 'technical'];
-    const interpersonalWords = ['interview', 'communication', 'collaboration', 'human', 'oversight', 'judgment', 'empathy'];
+    let score = 50;
 
-    // Count weights in title + description + explanation
-    const allText = `${title} ${description} ${explanation}`;
-    for (const w of creativeWords) if (allText.includes(w)) creative++;
-    for (const w of strategicWords) if (allText.includes(w)) strategic++;
-    for (const w of routineWords) if (allText.includes(w)) routine++;
-    for (const w of technicalWords) if (allText.includes(w)) technical++;
-    for (const w of interpersonalWords) if (allText.includes(w)) interpersonal++;
-
-    // Automatability extraction (from explanation if available)
-    let automatability = null;
-    let autoMatch = job.aiExplanation && job.aiExplanation.match(/(\d{1,3})%\s*automatable/i);
-    if (autoMatch) automatability = parseInt(autoMatch[1]);
-
-    // If not present, estimate automatability
-    if (automatability === null) {
-      // More creative/strategic/interpersonal = less automatable
-      let humanScore = creative * 2 + strategic * 1.5 + interpersonal * 2;
-      let autoScore = routine * 2 + technical * 1.2;
-      let total = humanScore + autoScore;
-      if (total === 0) total = 1;
-      automatability = Math.round((autoScore / total) * 100);
-      // Clamp between 10 and 90
-      automatability = Math.max(10, Math.min(automatability, 90));
+    for (const keyword of highSafetyKeywords) {
+      if (title.includes(keyword) || description.includes(keyword)) {
+        score = Math.max(score, 80 + Math.floor(Math.random() * 15));
+        break;
+      }
     }
 
-    // AI Safety Score is inverse, but never lower than human-centric weight
-    let aiSafety = 100 - automatability;
-    if (creative + strategic + interpersonal > routine + technical) {
-      aiSafety = Math.max(aiSafety, 70 + Math.floor(Math.random() * 15));
+    for (const keyword of mediumSafetyKeywords) {
+      if (title.includes(keyword) || description.includes(keyword)) {
+        score = Math.max(score, 60 + Math.floor(Math.random() * 15));
+        break;
+      }
     }
-    // Clamp
-    aiSafety = Math.max(10, Math.min(aiSafety, 98));
 
-    // Attach to job for use in explanations
-    job._autoScore = automatability;
-    job._aiSafetyScore = aiSafety;
+    for (const keyword of lowerSafetyKeywords) {
+      if (title.includes(keyword) || description.includes(keyword)) {
+        score = Math.min(score, 40 + Math.floor(Math.random() * 10));
+        break;
+      }
+    }
 
-    return aiSafety;
+    // If description mentions "less likely to be automated", "human oversight", "requires creativity", boost score
+    if (
+      /less likely to be (heavily )?automated|human oversight|requires creativity|requires human|strategic thinking|engaging narratives|innovation|collaboration|critical thinking|problem solving/i.test(
+        description
+      )
+    ) {
+      score = Math.max(score, 85 + Math.floor(Math.random() * 10));
+    }
+
+    return Math.min(Math.max(score, 30), 98);
   }
 
   updateJobAIScore(jobId, score) {
