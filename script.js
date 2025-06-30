@@ -745,33 +745,49 @@ setTimeout(() => {
     // Format/clean AI explanation for "Why this score?"
     function formatAIExplanation(raw) {
       if (!raw) return '';
+      // Remove unwanted lines (Job Analysis, Risk Summary, etc.)
+      let cleaned = raw
+        .replace(/Job Analysis:.*$/gmi, '')
+        .replace(/Risk Summary:.*$/gmi, '')
+        .replace(/AI[- ]?Driven.*$/gmi, '')
+        .replace(/^\s*🏢.*$/gmi, '')
+        .replace(/^\s*Why this company score\?.*$/gmi, '')
+        .replace(/^\s*Company Score:.*$/gmi, '')
+        .replace(/^\s*Score:.*$/gmi, '')
+        .replace(/^\s*Top reasons:.*$/gmi, '')
+        .replace(/^\s*[-*]\s*$/gm, '')
+        .replace(/^\s*\*\*\s*$/gm, '')
+        .replace(/^\s*$/gm, '');
+
       // Extract breakdowns like "70% automatable, 30% human oversight"
       let breakdown = '';
       let bullets = [];
-      let summary = '';
-      // Find breakdown
-      const breakdownMatch = raw.match(/(\d{1,3}%\s*automatable[^.,;\n]*)/i);
-      if (breakdownMatch) breakdown = breakdownMatch[1];
+      // Find breakdown (first line with % automatable or similar)
+      const breakdownMatch = cleaned.match(/(\d{1,3}%\s*automatable[^\n]*)/i);
+      if (breakdownMatch) breakdown = breakdownMatch[1].trim();
+      // Remove breakdown line from cleaned text
+      if (breakdown) cleaned = cleaned.replace(breakdown, '');
+
       // Find all bullet-like or numbered reasons
-      const bulletMatches = raw.match(/(?:\d+\.\s*|\*\*?)([^\n*•]+?)(?=\n|$|\d+\.\s*|\*\*?)/g);
+      const bulletMatches = cleaned.match(/(?:^[-*•]\s*|^\d+\.\s*)([^\n*•-]+?)(?=\n|$)/gmi);
       if (bulletMatches && bulletMatches.length > 0) {
-        bullets = bulletMatches.map(b => b.replace(/^\d+\.\s*|\*\*?/g, '').trim()).filter(Boolean);
+        bullets = bulletMatches.map(b => b.replace(/^[-*•]\s*|^\d+\.\s*/, '').trim()).filter(Boolean);
       }
       // If not, try to extract sentences with "requires", "demands", "necessary", "needed"
       if (bullets.length === 0) {
-        const sentMatches = raw.match(/([^.?!]*?(requires|demands|necessary|needed)[^.?!]*[.?!])/gi);
+        const sentMatches = cleaned.match(/([^.?!]*?(requires|demands|necessary|needed)[^.?!]*[.?!])/gi);
         if (sentMatches) bullets = sentMatches.map(s => s.trim());
       }
-      // Fallback: take first 2-3 sentences
+      // Fallback: take first 2-4 sentences
       if (bullets.length === 0) {
-        bullets = raw.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
+        bullets = cleaned.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 4);
       }
       // Compose
       return `
         <div style="font-weight:700;color:#e94560;margin-bottom:6px;">Why this score?</div>
         ${breakdown ? `<div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>` : ''}
         <ul style="margin:0 0 0 18px;padding:0 0 0 0.5em;">
-          ${bullets.slice(0, 3).map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
+          ${bullets.slice(0, 4).map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
         </ul>
       `;
     }
@@ -813,7 +829,6 @@ setTimeout(() => {
       }
       return `
         <div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Why this company score?</div>
-        <div style="font-weight:600;color:#0f3460;margin-bottom:4px;">🏢 Company Score: ${score ? score + '/100' : ''}</div>
         <ul style="margin:0 0 0 18px;padding:0 0 0 0.5em;">
           ${bullets.slice(0, 3).map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
         </ul>
