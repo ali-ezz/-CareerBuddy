@@ -24,8 +24,28 @@ export default async function handler(req, res) {
       // Truncate
       return txt.slice(0, maxLen);
     }
+    // If job description is very long, try to extract the most relevant part (first paragraph or first 2-3 bullet points)
+    function extractRelevantText(str, maxLen) {
+      if (!str) return '';
+      // Remove HTML tags/entities
+      let txt = str.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/gi, ' ');
+      // Try to extract first paragraph or first 2-3 bullet points
+      let paraMatch = txt.match(/(.{30,400}?\.)/); // first full sentence
+      let bullets = txt.match(/•\s*([^•\n]{10,120})/g) || txt.match(/-\s*([^-•\n]{10,120})/g);
+      let summary = '';
+      if (bullets && bullets.length > 0) {
+        summary = bullets.slice(0, 3).map(b => b.replace(/^[-•]\s*/, '').trim()).join(' ');
+      } else if (paraMatch) {
+        summary = paraMatch[0];
+      } else {
+        summary = txt.slice(0, maxLen);
+      }
+      // Collapse whitespace
+      summary = summary.replace(/\s+/g, ' ').trim();
+      return summary.slice(0, maxLen);
+    }
     const safeJobTitle = cleanText(jobTitle, 120);
-    const safeJobDescription = cleanText(jobDescription, 300);
+    const safeJobDescription = extractRelevantText(jobDescription, 300);
 
     let messages;
     if (mode === "chatbot") {
