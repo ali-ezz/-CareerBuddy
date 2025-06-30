@@ -187,14 +187,15 @@ class CareerPlatform {
         throw new Error('Invalid job data received');
       }
       
-      this.jobs = data.jobs.map(job => ({
+      // Use Promise.all to await skills extraction for all jobs
+      this.jobs = await Promise.all(data.jobs.map(async (job) => ({
         ...job,
         id: job.id || this.generateJobId(job),
-        skills: this.extractSkills(job),
+        skills: (await this.extractSkills(job)) || [],
         isRemote: this.isRemoteJob(job),
         experienceLevel: this.extractExperienceLevel(job),
         salaryRange: this.extractSalaryRange(job)
-      }));
+      })));
       
       this.populateFilters();
       this.applyFilters();
