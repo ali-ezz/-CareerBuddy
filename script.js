@@ -779,19 +779,37 @@ setTimeout(() => {
     // Format/clean company score explanation
     function formatCompanyScore(raw) {
       if (!raw) return '';
-      // Extract score and justification
-      const match = raw.match(/^(\d{1,3})\D*(.*)$/s);
+      // Try to extract "Score: XX/100"
       let score = '';
-      let justification = match && match[2] ? match[2].trim() : '';
-      if (match) score = match[1];
+      let justification = '';
+      let match = raw.match(/Score:\s*(\d{1,3})\/100/i);
+      if (match) {
+        score = match[1];
+        // Justification is everything after "Top reasons:"
+        const justMatch = raw.match(/Top reasons:\s*([\s\S]*)/i);
+        if (justMatch) {
+          justification = justMatch[1].trim();
+        }
+      } else {
+        // Fallback: try to extract any number at the start
+        const fallbackMatch = raw.match(/^(\d{1,3})\D*(.*)$/s);
+        if (fallbackMatch) {
+          score = fallbackMatch[1];
+          justification = fallbackMatch[2] ? fallbackMatch[2].trim() : '';
+        }
+      }
+      // If still no score, fallback to 80
+      if (!score) score = '80';
       // Try to extract up to 3 concise reasons
       let bullets = [];
-      const bulletMatches = justification.match(/(?:\d+\.\s*|\*\*?)([^\n*•]+?)(?=\n|$|\d+\.\s*|\*\*?)/g);
-      if (bulletMatches && bulletMatches.length > 0) {
-        bullets = bulletMatches.map(b => b.replace(/^\d+\.\s*|\*\*?/g, '').trim()).filter(Boolean);
-      }
-      if (bullets.length === 0) {
-        bullets = justification.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
+      if (justification) {
+        const bulletMatches = justification.match(/(?:-|\d+\.)\s*([^\n*•]+?)(?=\n|$|-|\d+\.)/g);
+        if (bulletMatches && bulletMatches.length > 0) {
+          bullets = bulletMatches.map(b => b.replace(/^-|\d+\./, '').trim()).filter(Boolean);
+        }
+        if (bullets.length === 0) {
+          bullets = justification.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
+        }
       }
       return `
         <div style="font-weight:700;color:#0f3460;margin-bottom:6px;">Why this company score?</div>
