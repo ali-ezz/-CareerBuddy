@@ -856,9 +856,17 @@ class CareerPlatform {
 
     // If AI score or explanation is missing, trigger fetch and update modal when done
     if (typeof job.aiScore !== "number" || !job.aiExplanation) {
-      this.fetchJobAIScore(job).then(() => {
-        // After fetching, if modal is still open for this job, update the "Why" section
-        setTimeout(() => this.updateJobModalWhySection(job), 200);
+      this.fetchJobAIScore(job, 0, () => {
+        // After fetching, update both the "Why" section AND the top AI score in the modal
+        setTimeout(() => {
+          this.updateJobModalWhySection(job);
+          // Update the top AI score in the modal if present
+          const aiScoreElem = document.querySelector('#job-modal .ai-score');
+          if (aiScoreElem && typeof job.aiScore === "number") {
+            aiScoreElem.innerHTML = `🤖 ${job.aiScore}% Safe from AI`;
+            aiScoreElem.className = `ai-score ${this.getAIScoreClass(job.aiScore)}`;
+          }
+        }, 200);
       });
     }
 
