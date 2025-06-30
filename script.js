@@ -564,96 +564,25 @@ class CareerPlatform {
 
     for (let i = 0; i < jobs.length; i += batchSize) {
       const batch = jobs.slice(i, i + batchSize);
-      await Promise.all(batch.map(job => this.fetchJobAIScore(job)));
+      await Promise.all(batch.map(job => this.fetchJobAIScoreOnlyScore(job)));
       await new Promise(resolve => setTimeout(resolve, 800)); // Slightly faster, but still rate-limited
     }
   }
 
-  async fetchJobAIScore(job, retryCount = 0) {
-    // --- Frontend Caching for AI Safety Score ---
-    const cacheKey = `aiScore_${btoa(job.title + (job.description || "")).substring(0, 24)}`;
+  // Fetch ONLY the AI Safety Score (number) for grid display and cache it
+  async fetchJobAIScoreOnlyScore(job, retryCount = 0) {
+    const cacheKey = `aiScoreOnly_${btoa(job.title + (job.description || "")).substring(0, 24)}`;
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {
         const parsed = JSON.parse(cached);
-        if (parsed && typeof parsed.score === "number" && parsed.explanation) {
+        if (parsed && typeof parsed.score === "number") {
           job.aiScore = parsed.score;
-          job.aiExplanation = parsed.explanation;
           this.updateJobAIScore(job.id, job.aiScore);
-          // --- Update modal "Why" section if open for this job ---
-          this.updateJobModalWhySection(job);
           return;
         }
       } catch (e) {}
     }
-
-    // Helper: update modal "Why" section if open for this job
-    this.updateJobModalWhySection = function(job) {
-      const overlay = document.getElementById('job-modal-overlay');
-      const modal = document.getElementById('job-modal');
-      if (!overlay || !modal) return;
-      if (!overlay.classList.contains('open')) return;
-      // Check if the modal is showing this job
-      if (modal.innerHTML && modal.innerHTML.includes(job.title) && modal.innerHTML.includes(job.company_name)) {
-        // Update only the "Why" section
-        const whyBox = document.getElementById('job-why-score-content');
-        if (whyBox && job.aiExplanation) {
-          whyBox.innerHTML = (function formatAIExplanation(raw, aiScore) {
-            if (!raw) return '';
-            let cleaned = raw
-              .replace(/Job Analysis:.*$/gmi, '')
-              .replace(/Risk Summary:.*$/gmi, '')
-              .replace(/AI[- ]?Driven.*$/gmi, '')
-              .replace(/^\s*🏢.*$/gmi, '')
-              .replace(/^\s*Why this company score\?.*$/gmi, '')
-              .replace(/^\s*Company Score:.*$/gmi, '')
-              .replace(/^\s*Score:.*$/gmi, '')
-              .replace(/^\s*Top reasons:.*$/gmi, '')
-              .replace(/^\s*[-*]\s*$/gm, '')
-              .replace(/^\s*\*\*\s*$/gm, '')
-              .replace(/^\s*$/gm, '');
-            let aiScoreFromText = null;
-            const scoreTextMatch = cleaned.match(/score (it )?as (\d{1,3}) out of 100/i);
-            if (scoreTextMatch) {
-              aiScoreFromText = parseInt(scoreTextMatch[2]);
-              if (!isNaN(aiScoreFromText) && (typeof aiScore !== 'number' || aiScoreFromText > aiScore)) {
-                aiScore = aiScoreFromText;
-              }
-            }
-            let breakdown = '';
-            let bullets = [];
-            const breakdownMatch = cleaned.match(/(\d{1,3}%\s*automatable[^\n]*)/i);
-            if (breakdownMatch) breakdown = breakdownMatch[1].trim();
-            if (breakdown) cleaned = cleaned.replace(breakdown, '');
-            const bulletMatches = cleaned.match(/(?:^[-*•]\s*|^\d+\.\s*)([^\n*•-]+?)(?=\n|$)/gmi);
-            if (bulletMatches && bulletMatches.length > 0) {
-              bullets = bulletMatches.map(b => b.replace(/^[-*•]\s*|^\d+\.\s*/, '').trim()).filter(Boolean);
-            }
-            if (bullets.length === 0) {
-              const sentMatches = cleaned.match(/([^.?!]*?(requires|demands|necessary|needed)[^.?!]*[.?!])/gi);
-              if (sentMatches) bullets = sentMatches.map(s => s.trim());
-            }
-            if (bullets.length === 0) {
-              bullets = cleaned.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
-            }
-            bullets = bullets.slice(0, 2);
-            return `
-              <div style="font-weight:700;color:#e94560;margin-bottom:6px;">AI Safety Score: ${typeof aiScore === 'number' ? aiScore + '%' : ''}</div>
-              ${bullets.length > 0 ? `
-              <div style="font-weight:600;color:#222;margin-bottom:2px;">Why?</div>
-              <ul style="margin:0 0 12px 18px;padding:0 0 0 0.5em;">
-                ${bullets.map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
-              </ul>
-              ` : ''}
-              ${breakdown ? `
-              <div style="font-weight:700;color:#e94560;margin-bottom:4px;">Automatability</div>
-              <div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>
-              ` : ''}
-            `;
-          })(job.aiExplanation, job.aiScore);
-        }
-      }
-    };
 
     const maxRetries = 7;
     const retryDelay = 5000;
@@ -666,13 +595,11 @@ class CareerPlatform {
         body: JSON.stringify({
           jobTitle: job.title,
           jobDescription: job.description || job.title,
-          mode: "risk"
+          mode: "risk_score_only"
         })
       });
 
       if (!response.ok) {
-        // Try to parse Groq error for rate limit
-        let friendlyMessage = "Error fetching AI score.";
         let isRateLimit = false;
         try {
           const errorData = await response.json();
@@ -680,29 +607,21 @@ class CareerPlatform {
             errorData?.error?.code === "rate_limit_exceeded" ||
             (errorData?.details && errorData.details.includes("rate limit"))
           ) {
-            friendlyMessage = "AI is busy right now (rate limit reached). Waiting and retrying...";
             isRateLimit = true;
           }
         } catch (e) {}
         if (isRateLimit && retryCount < maxRetries) {
-          this.showAIRateLimitReminder(friendlyMessage);
           setTimeout(() => {
-            this.fetchJobAIScore(job, retryCount + 1, onDone);
+            this.fetchJobAIScoreOnlyScore(job, retryCount + 1);
           }, retryDelay * Math.pow(2, retryCount));
           return;
         } else {
-          this.showAIRateLimitReminder(friendlyMessage);
           throw new Error(`HTTP ${response.status}`);
         }
       }
 
       const data = await response.json();
       let score = null;
-
-      // Save explanation if present
-      if (data.explanation) {
-        job.aiExplanation = data.explanation;
-      }
 
       if (data.analysis) {
         const scoreMatch = data.analysis.match(/(\d+)/);
@@ -714,29 +633,89 @@ class CareerPlatform {
 
       if (score !== null && score >= 0 && score <= 100) {
         job.aiScore = score;
-        // --- Store in cache ---
-        localStorage.setItem(cacheKey, JSON.stringify({ score, explanation: job.aiExplanation }));
+        localStorage.setItem(cacheKey, JSON.stringify({ score }));
         this.updateJobAIScore(job.id, score);
       } else {
         job.aiScore = this.getFallbackAIScore(job);
-        job.aiExplanation = "This job's AI safety score is estimated based on its title and description. No detailed AI analysis was available.";
+        localStorage.setItem(cacheKey, JSON.stringify({ score: job.aiScore }));
         this.updateJobAIScore(job.id, job.aiScore);
       }
 
     } catch (error) {
-      console.error('Error fetching AI score for job:', job.id, error);
-
       if (retryCount < maxRetries) {
         setTimeout(() => {
-          this.fetchJobAIScore(job, retryCount + 1, onDone);
+          this.fetchJobAIScoreOnlyScore(job, retryCount + 1);
         }, retryDelay * (retryCount + 1));
       } else {
         job.aiScore = this.getFallbackAIScore(job);
-        job.aiExplanation = "This job's AI safety score is estimated based on its title and description. No detailed AI analysis was available.";
+        localStorage.setItem(cacheKey, JSON.stringify({ score: job.aiScore }));
         this.updateJobAIScore(job.id, job.aiScore);
       }
     }
-    // Always update the modal "Why" section if a callback is provided
+  }
+
+  // Fetch the AI Safety Explanation ONLY when modal is opened, and cache it
+  async fetchJobAIScoreExplanation(job, retryCount = 0, onDone) {
+    const cacheKey = `aiScoreExpl_${btoa(job.title + (job.description || "")).substring(0, 24)}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && typeof parsed.explanation === "string") {
+          job.aiExplanation = parsed.explanation;
+          if (typeof onDone === "function") setTimeout(onDone, 100);
+          return;
+        }
+      } catch (e) {}
+    }
+
+    const maxRetries = 7;
+    const retryDelay = 5000;
+
+    try {
+      const response = await fetch('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: job.title,
+          jobDescription: job.description || job.title,
+          mode: "risk_explanation_only"
+        })
+      });
+
+      if (!response.ok) {
+        let isRateLimit = false;
+        try {
+          const errorData = await response.json();
+          if (
+            errorData?.error?.code === "rate_limit_exceeded" ||
+            (errorData?.details && errorData.details.includes("rate limit"))
+          ) {
+            isRateLimit = true;
+          }
+        } catch (e) {}
+        if (isRateLimit && retryCount < maxRetries) {
+          setTimeout(() => {
+            this.fetchJobAIScoreExplanation(job, retryCount + 1, onDone);
+          }, retryDelay * Math.pow(2, retryCount));
+          return;
+        } else {
+          throw new Error(`HTTP ${response.status}`);
+        }
+      }
+
+      const data = await response.json();
+      if (data.explanation) {
+        job.aiExplanation = data.explanation;
+        localStorage.setItem(cacheKey, JSON.stringify({ explanation: job.aiExplanation }));
+      } else {
+        job.aiExplanation = "No detailed AI analysis was available.";
+        localStorage.setItem(cacheKey, JSON.stringify({ explanation: job.aiExplanation }));
+      }
+    } catch (error) {
+      job.aiExplanation = "No detailed AI analysis was available.";
+      localStorage.setItem(cacheKey, JSON.stringify({ explanation: job.aiExplanation }));
+    }
     if (typeof onDone === "function") setTimeout(onDone, 100);
   }
 
@@ -854,19 +833,19 @@ class CareerPlatform {
     
     if (!modal || !overlay) return;
 
-    // If AI score or explanation is missing, trigger fetch and update modal when done
-    if (typeof job.aiScore !== "number" || !job.aiExplanation) {
-      this.fetchJobAIScore(job, 0, () => {
-        // After fetching, update both the "Why" section AND the top AI score in the modal
+    // If AI score is missing, fetch it (score only, for grid)
+    if (typeof job.aiScore !== "number") {
+      this.fetchJobAIScoreOnlyScore(job, 0);
+    }
+    // If explanation is missing, fetch it only when modal is opened
+    if (!job.aiExplanation) {
+      this.fetchJobAIScoreExplanation(job, 0, () => {
         setTimeout(() => {
-          this.updateJobModalWhySection(job);
-          // Update the top AI score in the modal if present
-          const aiScoreElem = document.querySelector('#job-modal .ai-score');
-          if (aiScoreElem && typeof job.aiScore === "number") {
-            aiScoreElem.innerHTML = `🤖 ${job.aiScore}% Safe from AI`;
-            aiScoreElem.className = `ai-score ${this.getAIScoreClass(job.aiScore)}`;
+          // Re-render the modal completely to ensure all values update
+          if (document.getElementById('job-modal-overlay')?.classList.contains('open')) {
+            this.openJobModal(jobId);
           }
-        }, 200);
+        }, 100);
       });
     }
 
