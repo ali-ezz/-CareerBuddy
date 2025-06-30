@@ -124,6 +124,10 @@ You are an expert on the future of work and AI automation.
 - Use a wide range of scores and breakdowns (not just 60/70/30 or 42/80).
 - Your score and reasons must be based on the actual job description, industry, and required skills.
 - Analyze the job step by step: first, consider which tasks are automatable and which require human skills, then provide your score and breakdown.
+- The AI Safety Score MUST be consistent with the automatability breakdown:
+    - If the job is mostly human (low automatability), the AI Safety Score should be high.
+    - If the job is mostly automatable, the AI Safety Score should be low.
+    - Never contradict these two numbers.
 - If you must infer, state your reasoning and make it plausible for the job/industry.
 - Give at least 3 concise, bullet-point reasons specific to this job.
 - Do NOT use generic phrases; cite actual tasks or skills from the job description.
