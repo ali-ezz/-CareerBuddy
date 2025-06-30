@@ -117,7 +117,7 @@ Your job is to analyze a job's true risk of AI automation and provide a rational
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "meta-llama/llama-prompt-guard-2-86m",
+      model: "deepseek-r1-distill-llama-70b",
       temperature: 0.2,
       max_completion_tokens: 300,
       top_p: 1,
@@ -179,6 +179,20 @@ Top reasons:
     console.error("Request body:", req.body);
     console.error("GROK_API_KEY present:", !!process.env.GROK_API_KEY, "apiKey starts with:", apiKey ? apiKey.slice(0, 6) : "undefined");
     console.error("Error stack:", err.stack);
+
+    // Handle Groq token rate limit error
+    if (err && err.response && err.response.data && err.response.data.error && err.response.data.error.code === "rate_limit_exceeded") {
+      const waitMsg = err.response.data.error.message || "Grok AI rate limit reached. Please try again later.";
+      res.status(429).json({ error: "rate_limit", message: waitMsg });
+      return;
+    }
+    // Handle new Groq error format (from feedback)
+    if (err && err.error && err.error.code === "rate_limit_exceeded") {
+      const waitMsg = err.error.message || "Grok AI rate limit reached. Please try again later.";
+      res.status(429).json({ error: "rate_limit", message: waitMsg });
+      return;
+    }
+
     res.status(500).json({ error: "Grok API error", details: err.message });
   }
 }
