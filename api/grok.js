@@ -30,10 +30,40 @@ You are a professional, friendly, and highly knowledgeable AI career coach.
         },
         { role: "user", content: jobDescription }
       ];
+    } else if (mode === "autocomplete") {
+      messages = [
+        {
+          role: "system",
+          content: `
+You are an expert AI assistant for a job search platform. Given a partial search input, suggest up to 7 relevant job titles or skills that are popular, in-demand, or trending. Respond with a comma-separated list only, no extra text.
+          `.trim()
+        },
+        { role: "user", content: jobDescription }
+      ];
+    } else if (mode === "course") {
+      messages = [
+        {
+          role: "system",
+          content: `
+You are an expert career advisor. Given a skill, suggest the single best online course (Coursera, edX, Udemy, etc.) for learning or improving that skill. Respond with the course title and a direct link, in the format: [Course Title](URL). Respond with only one course and no extra commentary.
+          `.trim()
+        },
+        { role: "user", content: jobDescription }
+      ];
+    } else if (mode === "company_score") {
+      messages = [
+        {
+          role: "system",
+          content: `
+You are an expert on workplace culture and employee satisfaction. Given a company name, estimate its employee satisfaction or success rate as a score out of 100, based on public reputation, reviews, and work environment. Respond with only the score and a short (1-2 sentence) justification.
+          `.trim()
+        },
+        { role: "user", content: jobTitle }
+      ];
     } else {
       messages = [
         { role: "system", content: "You are an expert on the future of work and AI automation." },
-        { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond with a short risk summary and a score from 0 (very at risk) to 100 (very safe).` }
+        { role: "user", content: `Analyze this job: ${jobTitle}. Description: ${jobDescription}. How safe is it from AI disruption? Respond with a short risk summary, a percentage breakdown (e.g. '70% automatable, 30% human oversight'), and a score from 0 (very at risk) to 100 (very safe). Be concise and clear.` }
       ];
     }
 

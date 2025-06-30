@@ -92,33 +92,62 @@ class CareerPlatform {
   }
 
   async handleSearchSuggestions(query) {
-    if (query.length < 2) return;
-    
-    const suggestions = this.generateSearchSuggestions(query);
-    this.showSearchSuggestions(suggestions);
+    if (query.length < 2) {
+      this.showSearchSuggestions([]);
+      return;
+    }
+    // Use Groq AI for autocomplete suggestions
+    try {
+      const response = await fetch('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: "",
+          jobDescription: query,
+          mode: "autocomplete"
+        })
+      });
+      const data = await response.json();
+      // Expecting a comma-separated list
+      let suggestions = [];
+      if (data && data.explanation) {
+        suggestions = data.explanation.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      this.showSearchSuggestions(suggestions);
+    } catch (e) {
+      this.showSearchSuggestions([]);
+    }
   }
 
-  generateSearchSuggestions(query) {
-    const commonRoles = [
-      'Software Engineer', 'Data Scientist', 'Product Manager', 'UX Designer',
-      'DevOps Engineer', 'Marketing Manager', 'Sales Representative', 'Business Analyst',
-      'Frontend Developer', 'Backend Developer', 'Full Stack Developer', 'Machine Learning Engineer'
-    ];
-    
-    const skills = [
-      'JavaScript', 'Python', 'React', 'Node.js', 'AWS', 'Docker', 'Kubernetes',
-      'Machine Learning', 'Data Analysis', 'Project Management', 'Digital Marketing'
-    ];
-    
-    const allSuggestions = [...commonRoles, ...skills];
-    return allSuggestions
-      .filter(item => item.toLowerCase().includes(query.toLowerCase()))
-      .slice(0, 5);
-  }
+  // generateSearchSuggestions is now obsolete and not used
 
   showSearchSuggestions(suggestions) {
-    // Implementation for search suggestions dropdown
-    console.log('Search suggestions:', suggestions);
+    // Show suggestions in a dropdown below the search bar
+    let dropdown = document.getElementById('search-suggestions-dropdown');
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.id = 'search-suggestions-dropdown';
+      dropdown.className = 'search-suggestions-dropdown';
+      const container = document.querySelector('.search-container');
+      if (container) container.appendChild(dropdown);
+    }
+    dropdown.innerHTML = '';
+    if (!suggestions || suggestions.length === 0) {
+      dropdown.style.display = 'none';
+      return;
+    }
+    suggestions.forEach(suggestion => {
+      const item = document.createElement('div');
+      item.className = 'suggestion-item';
+      item.textContent = suggestion;
+      item.onclick = () => {
+        document.getElementById('main-search').value = suggestion;
+        dropdown.style.display = 'none';
+        this.handleSearch();
+      };
+      dropdown.appendChild(item);
+    });
+    dropdown.style.display = 'block';
   }
 
   async handleSearch() {
@@ -710,6 +739,93 @@ setTimeout(() => {
         </div>`
       : '';
 
+    // Company success rate (AI-powered)
+    let companyScoreHtml = '';
+    if (job.company_name) {
+      companyScoreHtml = `<div class="company-score" id="company-score-box" style="margin-left:12px;display:inline-block;">Loading company score...</div>`;
+      // Fetch company score asynchronously after modal is shown
+      setTimeout(async () => {
+        const box = document.getElementById('company-score-box');
+        if (box) {
+          try {
+            const resp = await fetch('/api/grok', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jobTitle: job.company_name,
+                jobDescription: "",
+                mode: "company_score"
+              })
+            });
+            const data = await resp.json();
+            let scoreText = '';
+            if (data && data.explanation) {
+              // Expecting: "87. Justification text..."
+              const match = data.explanation.match(/^(\d{1,3})\D*(.*)$/s);
+              if (match) {
+                const score = match[1];
+                const justification = match[2] ? match[2].trim() : '';
+                scoreText = `<span style="font-weight:bold;">🏢 ${score}/100</span>${justification ? `<span style="margin-left:8px;font-size:0.97em;color:#666;">${justification}</span>` : ''}`;
+              } else {
+                scoreText = data.explanation;
+              }
+            } else {
+              scoreText = "N/A";
+            }
+            box.innerHTML = scoreText;
+          } catch (e) {
+            box.innerHTML = "N/A";
+          }
+        }
+      }, 100);
+    }
+
+    // Skill-to-course links (AI-powered)
+    let skillLinksHtml = '';
+    if (job.skills && job.skills.length > 0) {
+      skillLinksHtml = `<div class="modal-skill-courses" style="margin-top:10px;"><strong>Courses for these skills:</strong><ul id="skill-course-list"></ul></div>`;
+      // Fetch course links asynchronously after modal is shown
+      setTimeout(() => {
+        const ul = document.getElementById('skill-course-list');
+        if (ul) {
+          ul.innerHTML = '';
+          job.skills.forEach(async (skill) => {
+            // Fetch course link from Groq AI
+            try {
+              const resp = await fetch('/api/grok', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  jobTitle: "",
+                  jobDescription: skill,
+                  mode: "course"
+                })
+              });
+              const data = await resp.json();
+              let courseHtml = '';
+              if (data && data.explanation && data.explanation.includes('](')) {
+                // Markdown link format: [Course Title](URL)
+                const match = data.explanation.match(/\[([^\]]+)\]\(([^)]+)\)/);
+                if (match) {
+                  courseHtml = `<a href="${match[2]}" target="_blank" rel="noopener">${match[1]}</a>`;
+                }
+              }
+              if (!courseHtml) {
+                courseHtml = `<span>${skill}</span>`;
+              }
+              const li = document.createElement('li');
+              li.innerHTML = `${skill}: ${courseHtml}`;
+              ul.appendChild(li);
+            } catch (e) {
+              const li = document.createElement('li');
+              li.textContent = skill;
+              ul.appendChild(li);
+            }
+          });
+        }
+      }, 100);
+    }
+
     modal.innerHTML = `
       <div class="modal-header" style="background: var(--accent, #e94560); color: #fff; border-radius: 12px 12px 0 0; padding: 24px 32px 16px 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.07);">
         <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -728,6 +844,7 @@ setTimeout(() => {
           <div class="ai-score ${aiScoreClass}" style="font-size: 1.1rem;">
             🤖 ${typeof aiScore === 'number' ? `${aiScore}% Safe from AI` : aiScore}
           </div>
+          ${companyScoreHtml}
           ${relevanceScore > 50 ? `<div class="relevance-score" style="background: #f59e42; color: #fff; padding: 6px 14px; border-radius: 16px; font-weight: 600;">🎯 ${Math.round(relevanceScore)}% Match</div>` : ''}
         </div>
         <div class="modal-details" style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px 32px; margin-bottom: 24px;">
@@ -743,6 +860,7 @@ setTimeout(() => {
             <div class="skills-grid" style="display: flex; flex-wrap: wrap; gap: 8px;">
               ${job.skills.map(skill => `<span class="skill-tag" style="background: #f3f4f6; color: #222; padding: 6px 14px; border-radius: 14px; font-size: 0.98rem;">${skill}</span>`).join('')}
             </div>
+            ${skillLinksHtml}
           </div>
         ` : ''}
         <div class="modal-description" style="margin-bottom: 24px;">
