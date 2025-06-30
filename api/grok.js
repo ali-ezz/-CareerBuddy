@@ -2,93 +2,15 @@ import { Groq } from 'groq-sdk';
 
 console.log("api/grok.js loaded");
 
-// --- In-memory cache, deduplication, and rate limiting ---
-const cache = new Map(); // key: cacheKey, value: { value, expires }
-const pending = new Map(); // key: cacheKey, value: Promise
-const rateLimits = new Map(); // key: ip, value: [timestamps]
-
-function makeCacheKey({ jobTitle, jobDescription, mode }) {
-  return `${mode}:${jobTitle || ""}|${(jobDescription || "").slice(0, 120)}`;
-}
-function getCacheDuration(mode) {
-  if (mode === "company_score" || mode === "course") return 7 * 24 * 60 * 60 * 1000; // 7 days
-  if (mode === "autocomplete") return 2 * 60 * 60 * 1000; // 2 hours
-  return 24 * 60 * 60 * 1000; // 24 hours for job risk/chatbot
-}
-function getFromCache(key) {
-  const entry = cache.get(key);
-  if (!entry) return null;
-  if (Date.now() > entry.expires) {
-    cache.delete(key);
-    return null;
-  }
-  return entry.value;
-}
-function setCache(key, value, ms) {
-  cache.set(key, { value, expires: Date.now() + ms });
-}
-function cleanupCache() {
-  const now = Date.now();
-  for (const [k, v] of cache.entries()) {
-    if (v.expires < now) cache.delete(k);
-  }
-}
-setInterval(cleanupCache, 60 * 60 * 1000); // Clean up every hour
-
-function rateLimit(ip, maxPerMin = 20) {
-  const now = Date.now();
-  const windowMs = 60 * 1000;
-  if (!rateLimits.has(ip)) rateLimits.set(ip, []);
-  const arr = rateLimits.get(ip).filter(ts => now - ts < windowMs);
-  arr.push(now);
-  rateLimits.set(ip, arr);
-  return arr.length > maxPerMin;
-}
-
 export default async function handler(req, res) {
-  const ip = req.headers["x-forwarded-for"]?.split(",")[0] || req.socket?.remoteAddress || "unknown";
-  console.log("api/grok.js handler invoked", req.method, req.body, "IP:", ip);
-
+  console.log("api/grok.js handler invoked", req.method, req.body);
   if (req.method !== "POST") return res.status(405).end();
-
-  // --- Rate limiting ---
-  if (rateLimit(ip, 20)) {
-    return res.status(429).json({ error: "Rate limit exceeded. Please wait and try again." });
-  }
-
   try {
     const { jobTitle, jobDescription, mode } = req.body;
     const apiKey = process.env.GROK_API_KEY;
 
     if (!apiKey) {
       return res.status(500).json({ error: "GROK_API_KEY is not set in environment variables." });
-    }
-
-    // --- Model switching ---
-    // Use new Groq model naming (update as needed)
-    let model = "meta-llama/llama-4-scout-17b-16e-instruct";
-    // You can switch models here if you want different ones for autocomplete/course/chatbot
-    // For example:
-    // if (mode === "autocomplete" || mode === "course") {
-    //   model = "meta-llama/llama-4-scout-17b-16e-instruct";
-    // }
-
-    // --- In-memory cache check ---
-    const cacheKey = makeCacheKey({ jobTitle, jobDescription, mode });
-    const cacheMs = getCacheDuration(mode);
-    const cached = getFromCache(cacheKey);
-    if (cached) {
-      return res.status(200).json(cached);
-    }
-
-    // --- Deduplication: if a request for this key is in progress, wait for it ---
-    if (pending.has(cacheKey)) {
-      try {
-        const result = await pending.get(cacheKey);
-        return res.status(200).json(result);
-      } catch (e) {
-        // fall through to normal logic
-      }
     }
 
     let messages;
@@ -177,29 +99,10 @@ Top reasons:
 
     const groq = new Groq({ apiKey });
 
-    // --- Deduplication: store the promise so others can await it ---
-    let resolvePending, rejectPending;
-    const pendingPromise = new Promise((resolve, reject) => {
-      resolvePending = resolve;
-      rejectPending = reject;
-    });
-    pending.set(cacheKey, pendingPromise);
-
     // Reduce max_completion_tokens for all calls (token optimization)
-    // Remove the try/catch block and use promise .catch for error handling
-    // This avoids the TypeScript parser confusion with nested try/catch in async export default
-    // (Node/Express will still catch thrown errors and return 500 if not handled)
-    // See: https://github.com/microsoft/TypeScript/issues/47608
-
-    // Main logic
-    // Use a single try/catch, no redeclaration of result
-    let result;
-    // Remove the try/catch block entirely to avoid TypeScript parser confusion.
-    // Let errors propagate naturally (the framework will handle 500 errors).
-
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model,
+      model: "llama-3.3-70b-versatile",
       temperature: 0.2,
       max_completion_tokens: 120, // was 300, now 120 for token savings
       top_p: 1,
@@ -214,22 +117,19 @@ Top reasons:
     if (mode === "course" && (content.includes("No real course found") || !/\[.*\]\(.*\)/.test(content))) {
       const skill = (req.body.jobDescription || "").toLowerCase();
       if (skill.includes("sql")) {
-        result = {
+        res.status(200).json({
           analysis: "Databases and SQL for Data Science with Python",
           explanation: `[Databases and SQL for Data Science with Python](https://www.coursera.org/learn/sql-data-science)  
 Provider: Coursera  
 Short Description: Learn SQL basics, querying, and data analysis using real-world datasets.`
-        };
-        setCache(cacheKey, result, cacheMs);
-        resolvePending(result);
-        pending.delete(cacheKey);
-        return res.status(200).json(result);
+        });
+        return;
       }
       // Add more fallbacks for other common skills if needed
     }
 
     if (mode === "chatbot") {
-      result = { analysis: content };
+      res.status(200).json({ analysis: content });
     } else if (mode === "company_score") {
       // Try to extract score from "Score: XX/100" or fallback to static mock if missing
       let score = "N/A";
@@ -253,20 +153,17 @@ Top reasons:
 - Invests in technology and future skills`;
         console.log("Using static fallback for company_score");
       }
-      result = { analysis: score, explanation };
+      res.status(200).json({ analysis: score, explanation });
     } else {
       const match = content.match(/\b([1-9]?[0-9]|100)\b/);
       const score = match ? match[0] : "N/A";
-      result = { analysis: score, explanation: content };
+      res.status(200).json({ analysis: score, explanation: content });
     }
-
-    setCache(cacheKey, result, cacheMs);
-    resolvePending(result);
-    pending.delete(cacheKey);
-    return res.status(200).json(result);
-  } catch (error) {
-    pending.delete(cacheKey);
-    console.error("Error in handler:", error);
-    return res.status(500).json({ error: "Internal server error." });
+  } catch (err) {
+    console.error("Grok API error:", err);
+    console.error("Request body:", req.body);
+    console.error("GROK_API_KEY present:", !!process.env.GROK_API_KEY, "apiKey starts with:", apiKey ? apiKey.slice(0, 6) : "undefined");
+    console.error("Error stack:", err.stack);
+    res.status(500).json({ error: "Grok API error", details: err.message });
   }
 }
