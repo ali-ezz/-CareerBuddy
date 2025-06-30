@@ -117,7 +117,7 @@ Your job is to analyze a job's true risk of AI automation and provide a rational
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      model: "meta-llama/llama-prompt-guard-2-86m",
       temperature: 0.2,
       max_completion_tokens: 300,
       top_p: 1,
