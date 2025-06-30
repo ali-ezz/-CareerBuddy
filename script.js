@@ -745,43 +745,33 @@ setTimeout(() => {
     // Format/clean AI explanation for "Why this score?"
     function formatAIExplanation(raw) {
       if (!raw) return '';
-      // Remove unwanted lines (Job Analysis, Risk Summary, etc.)
-      let cleaned = raw
-        .replace(/Job Analysis:.*$/gim, '')
-        .replace(/Risk Summary:.*$/gim, '')
-        .replace(/AI-Driven.*$/gim, '')
-        .replace(/🏢/g, '')
-        .replace(/Why this company score\?/gi, '')
-        .replace(/Company Score:.*$/gim, '')
-        .replace(/^\s*[\*\-]\s*/gm, '') // Remove leading bullets for reformatting
-        .replace(/\n{2,}/g, '\n')
-        .trim();
-
       // Extract breakdowns like "70% automatable, 30% human oversight"
       let breakdown = '';
       let bullets = [];
-      // Find breakdown (first line with %)
-      const breakdownMatch = cleaned.match(/(\d{1,3}%\s*automatable[^\n]*)/i);
+      let summary = '';
+      // Find breakdown
+      const breakdownMatch = raw.match(/(\d{1,3}%\s*automatable[^.,;\n]*)/i);
       if (breakdownMatch) breakdown = breakdownMatch[1];
-      // Remove breakdown from cleaned text
-      if (breakdown) cleaned = cleaned.replace(breakdown, '');
       // Find all bullet-like or numbered reasons
-      const bulletMatches = cleaned.match(/(?:-|\d+\.)\s*([^\n*•]+?)(?=\n|$|-|\d+\.)/g);
+      const bulletMatches = raw.match(/(?:\d+\.\s*|\*\*?)([^\n*•]+?)(?=\n|$|\d+\.\s*|\*\*?)/g);
       if (bulletMatches && bulletMatches.length > 0) {
-        bullets = bulletMatches.map(b => b.replace(/^-|\d+\./, '').trim()).filter(Boolean);
+        bullets = bulletMatches.map(b => b.replace(/^\d+\.\s*|\*\*?/g, '').trim()).filter(Boolean);
       }
-      // If not, split by newlines and filter
+      // If not, try to extract sentences with "requires", "demands", "necessary", "needed"
       if (bullets.length === 0) {
-        bullets = cleaned.split(/\n/).map(s => s.trim()).filter(Boolean);
+        const sentMatches = raw.match(/([^.?!]*?(requires|demands|necessary|needed)[^.?!]*[.?!])/gi);
+        if (sentMatches) bullets = sentMatches.map(s => s.trim());
       }
-      // Only keep 2-4 relevant points
-      bullets = bullets.filter(b => b.length > 0 && !b.match(/automatable|job analysis|risk summary|company score|why this company/i)).slice(0, 4);
-
+      // Fallback: take first 2-3 sentences
+      if (bullets.length === 0) {
+        bullets = raw.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
+      }
+      // Compose
       return `
         <div style="font-weight:700;color:#e94560;margin-bottom:6px;">Why this score?</div>
         ${breakdown ? `<div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>` : ''}
         <ul style="margin:0 0 0 18px;padding:0 0 0 0.5em;">
-          ${bullets.map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
+          ${bullets.slice(0, 3).map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
         </ul>
       `;
     }
