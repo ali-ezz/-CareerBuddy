@@ -51,7 +51,9 @@ export default async function handler(req, res) {
       ];
     }
 
-    const groq = new Groq({ apiKey });
+    // Ensure apiKey is defined in this scope
+    const groqApiKey = apiKey;
+    const groq = new Groq({ apiKey: groqApiKey });
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
