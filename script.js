@@ -217,15 +217,41 @@ class CareerPlatform {
     return btoa(job.url || job.title + job.company_name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
   }
 
-  extractSkills(job) {
-    const text = `${job.title} ${job.description}`.toLowerCase();
-    const skillKeywords = [
-      'javascript', 'python', 'react', 'node.js', 'aws', 'docker', 'kubernetes',
-      'machine learning', 'data analysis', 'sql', 'mongodb', 'postgresql',
-      'figma', 'adobe', 'photoshop', 'sketch', 'git', 'jenkins', 'terraform'
-    ];
-    
-    return skillKeywords.filter(skill => text.includes(skill));
+  // --- Improved AI/NLP-based skill extraction ---
+  async extractSkills(job) {
+    // Use Groq AI to extract only real, contextually relevant skills from the job description
+    try {
+      const response = await fetch('/api/grok', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobTitle: job.title,
+          jobDescription: job.description,
+          mode: "extract_skills"
+        })
+      });
+      const data = await response.json();
+      // Expecting a comma-separated list or bullet points
+      let skills = [];
+      if (data && data.explanation) {
+        // Try to split by comma or newlines
+        skills = data.explanation
+          .split(/,|\n|•|-/)
+          .map(s => s.trim().toLowerCase())
+          .filter(Boolean)
+          .filter((v, i, arr) => arr.indexOf(v) === i); // dedupe
+      }
+      return skills;
+    } catch (e) {
+      // Fallback to keyword matching if AI fails
+      const text = `${job.title} ${job.description}`.toLowerCase();
+      const skillKeywords = [
+        'javascript', 'python', 'react', 'node.js', 'aws', 'docker', 'kubernetes',
+        'machine learning', 'data analysis', 'sql', 'mongodb', 'postgresql',
+        'figma', 'adobe', 'photoshop', 'sketch', 'git', 'jenkins', 'terraform'
+      ];
+      return skillKeywords.filter(skill => text.includes(skill));
+    }
   }
 
   isRemoteJob(job) {
