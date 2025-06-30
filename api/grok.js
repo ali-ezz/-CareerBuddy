@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "meta-llama/llama-prompt-guard-2-86m",
+      model: "compound-beta-mini",
       temperature: 0.2,
       max_completion_tokens: 80, // Lowered from 160 to 80 to use the least tokens
       top_p: 1,
