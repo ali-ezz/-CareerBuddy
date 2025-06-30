@@ -90,7 +90,7 @@ Why: 1-2 sentences, specific and concise. If human-centric, say why. If automata
 
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: "compound-beta-mini",
+      model: "meta-llama/llama-prompt-guard-2-86m",
       temperature: 0.2,
       max_completion_tokens: mode === "company_score" ? 80 : 120,
       top_p: 1,
