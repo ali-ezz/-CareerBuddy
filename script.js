@@ -684,34 +684,49 @@ setTimeout(() => {
     const title = job.title.toLowerCase();
     const description = (job.description || '').toLowerCase();
 
-    // Improved logic: boost score if creative, strategic, or human-centric terms are present
+    // Keywords for human/creative/strategic roles
     const highSafetyKeywords = [
-      'software', 'developer', 'engineer', 'designer', 'creative', 'strategy', 'manager', 'architect', 'lead', 'senior', 'principal', 'ai', 'machine learning', 'data scientist',
-      'finance', 'accounting', 'procurement', 'storytelling', 'narrative', 'innovation', 'collaboration', 'human', 'oversight', 'communication', 'leadership', 'problem solving', 'critical thinking'
+      'creative', 'strategy', 'strategic', 'brand', 'storytelling', 'narrative', 'innovation', 'collaboration', 'human', 'oversight', 'communication', 'leadership', 'problem solving', 'critical thinking', 'judgment', 'visual', 'design', 'engagement', 'editorial', 'content lead', 'manager', 'director', 'scientist', 'research', 'consultant', 'specialist', 'engineer', 'developer', 'designer', 'ai', 'machine learning'
     ];
     const mediumSafetyKeywords = [
-      'analyst', 'consultant', 'specialist', 'coordinator', 'officer', 'advisor', 'support', 'marketing', 'sales', 'content', 'media'
+      'analyst', 'coordinator', 'officer', 'advisor', 'support', 'marketing', 'sales', 'media', 'content', 'finance', 'accounting', 'procurement'
     ];
     const lowerSafetyKeywords = [
       'clerk', 'assistant', 'operator', 'entry', 'junior', 'data entry', 'routine', 'repetitive', 'processing'
     ];
 
+    // Automatability extraction (from explanation if available)
+    let automatability = null;
+    if (job.aiExplanation) {
+      const match = job.aiExplanation.match(/(\d{1,3})%\s*automatable/i);
+      if (match) automatability = parseInt(match[1]);
+    }
+
     let score = 50;
 
+    // If automatability is known, use it to set a minimum AI Safety Score
+    if (typeof automatability === 'number') {
+      // If only 40% automatable, AI Safety should be at least 100-automatability-10
+      score = Math.max(score, 100 - automatability - 10);
+    }
+
+    // Boost for human/creative/strategic roles
     for (const keyword of highSafetyKeywords) {
       if (title.includes(keyword) || description.includes(keyword)) {
-        score = Math.max(score, 80 + Math.floor(Math.random() * 15));
+        score = Math.max(score, 85 + Math.floor(Math.random() * 10));
         break;
       }
     }
 
+    // Medium safety roles
     for (const keyword of mediumSafetyKeywords) {
       if (title.includes(keyword) || description.includes(keyword)) {
-        score = Math.max(score, 60 + Math.floor(Math.random() * 15));
+        score = Math.max(score, 65 + Math.floor(Math.random() * 10));
         break;
       }
     }
 
+    // Lower safety roles
     for (const keyword of lowerSafetyKeywords) {
       if (title.includes(keyword) || description.includes(keyword)) {
         score = Math.min(score, 40 + Math.floor(Math.random() * 10));
@@ -721,14 +736,15 @@ setTimeout(() => {
 
     // If description mentions "less likely to be automated", "human oversight", "requires creativity", boost score
     if (
-      /less likely to be (heavily )?automated|human oversight|requires creativity|requires human|strategic thinking|engaging narratives|innovation|collaboration|critical thinking|problem solving/i.test(
+      /less likely to be (heavily )?automated|human oversight|requires creativity|requires human|strategic thinking|engaging narratives|innovation|collaboration|critical thinking|problem solving|brand voice|visual consistency|judgment|editorial/i.test(
         description
       )
     ) {
-      score = Math.max(score, 85 + Math.floor(Math.random() * 10));
+      score = Math.max(score, 90 + Math.floor(Math.random() * 8));
     }
 
-    return Math.min(Math.max(score, 30), 98);
+    // Clamp between 35 and 98
+    return Math.min(Math.max(score, 35), 98);
   }
 
   updateJobAIScore(jobId, score) {
