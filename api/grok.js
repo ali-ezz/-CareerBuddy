@@ -102,8 +102,26 @@ Top reasons:
       cleanDesc = cleanDesc.replace(/\s+/g, " ").trim();
       if (cleanDesc.length > 2000) cleanDesc = cleanDesc.slice(0, 2000);
       messages = [
-        { role: "system", content: "You are an expert on the future of work and AI automation." },
-        { role: "user", content: `Job Title: ${jobTitle}\nDescription: ${cleanDesc}\nGive a risk score (0-100) for this job's AI safety, an automatability breakdown (e.g. 70% automatable, 30% human oversight), and at least 3-5 specific reasons. Respond as: Score: XX. Automatability: YY% automatable, ZZ% human oversight. Reasons: ...` }
+        { role: "system", content: `
+You are an expert on the future of work and AI automation.
+- Always provide a nuanced, job-specific analysis.
+- Do NOT give the same score or breakdown for every job.
+- Consider the unique aspects of the job, industry, and required skills.
+- Use a wide range of scores and breakdowns (not just 60/70/30).
+- If the job is highly creative, strategic, or people-focused, lower the automatability.
+- If the job is repetitive, data-driven, or rules-based, increase the automatability.
+- Give at least 3 concise, bullet-point reasons specific to this job.
+- Respond in this format:
+
+Score: XX
+Automatability: YY% automatable, ZZ% human oversight
+
+Reasons:
+1. ...
+2. ...
+3. ...
+        `.trim() },
+        { role: "user", content: `Job Title: ${jobTitle}\nDescription: ${cleanDesc}` }
       ];
     } else {
       // Fallback: just echo what was sent

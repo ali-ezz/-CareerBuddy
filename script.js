@@ -954,36 +954,36 @@ class CareerPlatform {
       // Remove breakdown line from cleaned text
       if (breakdown) cleaned = cleaned.replace(breakdown, '');
 
-      // Find all bullet-like or numbered reasons
-      const bulletMatches = cleaned.match(/(?:^[-*•]\s*|^\d+\.\s*)([^\n*•-]+?)(?=\n|$)/gmi);
+      // Find all bullet-like or numbered reasons (improved: match "Reasons:" section)
+      const reasonsSectionMatch = cleaned.match(/Reasons:\s*([\s\S]*)/i);
+      let reasonsText = reasonsSectionMatch ? reasonsSectionMatch[1] : cleaned;
+      // Extract numbered or bullet points from reasonsText
+      const bulletMatches = reasonsText.match(/(?:^[-*•]\s*|^\d+\.\s*)([^\n*•-]+?)(?=\n|$)/gmi);
       if (bulletMatches && bulletMatches.length > 0) {
         bullets = bulletMatches.map(b => b.replace(/^[-*•]\s*|^\d+\.\s*/, '').trim()).filter(Boolean);
       }
       // If not, try to extract sentences with "requires", "demands", "necessary", "needed"
       if (bullets.length === 0) {
-        const sentMatches = cleaned.match(/([^.?!]*?(requires|demands|necessary|needed)[^.?!]*[.?!])/gi);
+        const sentMatches = reasonsText.match(/([^.?!]*?(requires|demands|necessary|needed)[^.?!]*[.?!])/gi);
         if (sentMatches) bullets = sentMatches.map(s => s.trim());
       }
-      // Fallback: take first 2-3 sentences
+      // Fallback: take first 3-5 sentences
       if (bullets.length === 0) {
-        bullets = cleaned.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 3);
+        bullets = reasonsText.split(/\. |\n/).map(s => s.trim()).filter(Boolean).slice(0, 5);
       }
 
-      // Only keep the top 2 reasons for minimal output
-      bullets = bullets.slice(0, 2);
-
-      // Compose two sections: AI Safety Score and Automatability
+      // Compose three sections: AI Safety Score, Automatability, and Reasons
       return `
         <div style="font-weight:700;color:#e94560;margin-bottom:6px;">AI Safety Score: ${typeof aiScore === 'number' ? aiScore + '%' : ''}</div>
+        ${breakdown ? `
+        <div style="font-weight:700;color:#e94560;margin-bottom:4px;">Automatability</div>
+        <div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>
+        ` : ''}
         ${bullets.length > 0 ? `
         <div style="font-weight:600;color:#222;margin-bottom:2px;">Why?</div>
         <ul style="margin:0 0 12px 18px;padding:0 0 0 0.5em;">
           ${bullets.map(b => `<li style="margin-bottom:2px;">${b}</li>`).join('')}
         </ul>
-        ` : ''}
-        ${breakdown ? `
-        <div style="font-weight:700;color:#e94560;margin-bottom:4px;">Automatability</div>
-        <div style="font-weight:600;color:#e94560;margin-bottom:4px;">${breakdown}</div>
         ` : ''}
       `;
     }
