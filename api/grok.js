@@ -18,35 +18,35 @@ export default async function handler(req, res) {
       messages = [
         {
           role: "user",
-          content: `You are a friendly, expert AI career coach. Give concise, actionable advice (max 3 sentences). Be supportive and specific.\n\nUser: ${jobDescription}`
+          content: `Career advice (max 2 sentences): ${jobDescription}`
         }
       ];
     } else if (mode === "autocomplete") {
       messages = [
         {
           role: "user",
-          content: `You are an expert AI assistant for a job search platform. Given a partial search input, suggest up to 7 relevant job titles or skills that are popular, in-demand, or trending. Respond with a comma-separated list only, no extra text.\n\nInput: ${jobDescription}`
+          content: `Suggest 5 trending job titles or skills (comma-separated): ${jobDescription}`
         }
       ];
     } else if (mode === "course") {
       messages = [
         {
           role: "user",
-          content: `Given a skill, reply with:\nCourse: [Title] (URL), Provider: [Name], 1-sentence description.\nIf no real course, reply: No real course found.\n\nSkill: ${jobDescription}`
+          content: `Best online course for: ${jobDescription}. Reply: Course: [Title] (URL), Provider: [Name], 1-sentence description. Or: No real course found.`
         }
       ];
     } else if (mode === "company_score") {
       messages = [
         {
           role: "user",
-          content: `You are an expert on workplace culture. Given a company name, reply with:\nScore: X/100\nReason: 1-2 sentences, specific and logical. Use public reputation, reviews, innovation, or tech adoption. If unknown, explain your reasoning.\n\nCompany: ${jobTitle}`
+          content: `Company score (0-100) for: ${jobTitle}. Reason (1 sentence, specific):`
         }
       ];
     } else {
       messages = [
         {
           role: "user",
-          content: `You are an expert on AI job automation. Given a job title and description, reply with:\nAutomatability: X% (0-100)\nWhy: 1-2 sentences, specific and concise. If human-centric, say why. If automatable, name the tasks.\n\nJob Title: ${jobTitle}\nDescription: ${jobDescription}\nHow automatable is this job? Reply with 'Automatability: X%' and 'Why: ...'`
+          content: `AI Safety (0-100) and Automatability (0-100%) for: ${jobTitle}. Main reason (1-2 sentences): ${jobDescription}`
         }
       ];
     }
@@ -58,10 +58,10 @@ export default async function handler(req, res) {
       model: "meta-llama/llama-prompt-guard-2-22m",
       temperature: 0.2,
       max_completion_tokens: 
-        mode === "company_score" ? 80 :
-        mode === "chatbot" ? 80 :
-        mode === "course" ? 60 :
-        120,
+        mode === "company_score" ? 40 :
+        mode === "chatbot" ? 40 :
+        mode === "course" ? 40 :
+        60,
       top_p: 1,
       stream: false,
       stop: null
